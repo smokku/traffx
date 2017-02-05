@@ -1,6 +1,25 @@
 'use strict'
 const debug = require('debug')('medium:main')
 const xmpp = require('node-xmpp-server')
+const redis = require('redis-node')
+const redispub = redis.createClient()
+const redissub = redis.createClient()
+
+xmpp._Server.prototype.route = function (jid = '', stanza) {
+  redispub.publish(jid, stanza.toString())
+}
+
+xmpp._Server.prototype.registerRoute = function (jid, client) {
+  redissub.subscribeTo(jid, (channel, stanza, pattern) => {
+    client.send(stanza)
+  })
+  return true
+}
+
+xmpp._Server.prototype.unregisterRoute = function (jid, client) {
+  redissub.unsubscribeFrom(jid)
+  return true
+}
 
 // const r = new xmpp.Router()
 const c2s = new xmpp.C2S.TCPServer()
@@ -31,7 +50,7 @@ c2s.on('connection', client => {
   let socket = client.connection.socket
   let local = socket.address()
   debug(
-    '[%s]:%s CONNECT [%s]:%s => [%s]:%s',
+    '[%s]:%s CONNECT [%s]:%s -> [%s]:%s',
     address.address,
     address.port,
     socket.remoteAddress,
@@ -40,23 +59,32 @@ c2s.on('connection', client => {
     local.port
   )
 
-  client.id = socket.remoteAddress + '/' + socket.remotePort
+  client.id = `${socket.remoteAddress}/${socket.remotePort}`
 
   client.on('authenticate', (opts, cb) => {
-    debug('%s AUTHENTICATE', opts.client.id, opts.username, opts.password)
+    debug('%s AUTH', opts.client.id, opts.username, opts.password)
     cb(null, opts)
   })
 
   client.on('online', () => {
     debug('%s ONLINE', client.id, client.jid.toString())
+    c2s.registerRoute(client.jid, client)
   })
 
   client.on('stanza', stanza => {
     debug('%s %s STANZA', client.id, client.jid, stanza.toString())
-    var from = stanza.attrs.from
-    stanza.attrs.from = stanza.attrs.to
-    stanza.attrs.to = from
-    client.send(stanza)
+    // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
+    if (
+      stanza.is('presence', 'jabber:client') &&
+        [ 'subscribe', 'subscribed', 'unsubscribe', 'unsubscribed' ].includes(
+          stanza.type
+        )
+    ) {
+      stanza.from = client.jid.bare().toString()
+    } else {
+      stanza.from = client.jid.toString()
+    }
+    c2s.route(stanza.attrs.to, stanza)
   })
 
   client.on('disconnect', err => {
@@ -64,25 +92,8 @@ c2s.on('connection', client => {
       '%s %s %s',
       client.id,
       client.jid,
-      err ? 'TEARDOWN ' + err : 'DISCONNECT'
+      err ? `TEARDOWN ${err}` : 'DISCONNECT'
     )
+    c2s.unregisterRoute(client.jid)
   })
 })
-// xmpp.C2S.prototype.route = function (stanza) {
-//   var self = this
-//   if (stanza.attrs && stanza.attrs.to) {
-//     var toJid = new xmpp.JID(stanza.attrs.to)
-//     redispub.publish(toJid.bare().toString(), stanza.toString())
-//   }
-// }
-//
-// xmpp.C2S.prototype.registerRoute = function (jid, client) {
-//   redissub.subscribeTo(jid.bare().toString(), function (
-//     channel,
-//     stanza,
-//     pattern
-//   ) {
-//     client.send(stanza)
-//   })
-//   return true
-// }
