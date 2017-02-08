@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "env DEBUG='*' node main.js",
-    "test": "ava"
+    "test": "ava --timeout=5s"
   },
   "repository": {
     "type": "git",
