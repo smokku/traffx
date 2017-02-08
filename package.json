@@ -4,6 +4,7 @@
   "description": "XMPP daemon",
   "main": "main.js",
   "scripts": {
+    "start": "env DEBUG='*' node main.js",
     "test": "ava"
   },
   "repository": {
