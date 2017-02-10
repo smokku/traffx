@@ -20,13 +20,18 @@ function clientTest (t, opts, port) {
     const jid = Math.random().toString(36).substring(7) + '@localhost'
     const password = 'password'
 
-    const entity = new client.Client({ autostart: false, jid, password, port: opts.server.port })
+    const entity = new client.Client({
+      autostart: false,
+      port: opts.server.port,
+      jid,
+      password
+    })
 
     entity.on('error', t.end)
 
     entity.on('online', sess => {
       t.is(sess.jid.bare().toString(), jid)
-      t.end()
+      entity.end()
     })
 
     entity.on('end', t.end)
