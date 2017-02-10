@@ -3,15 +3,24 @@ import test from 'ava'
 import client from 'node-xmpp-client'
 import { C2S } from 'node-xmpp-server'
 import ModC2S from '../modules/c2s'
+import Router from '../modules/router'
 
-function clientTest (t, Server, port) {
-  const c2s = new ModC2S({ server: new Server({ port }) })
+const router = new Router()
+const tcp = new C2S.TCPServer({ port: 10000 + process.pid })
+const ws = new C2S.WebSocketServer({ port: 10001 + process.pid })
+
+function clientTest (t, opts, port) {
+  const c2s = new ModC2S(opts)
+
+  c2s.server.on('connection', connection => {
+    t.pass()
+  })
 
   c2s.server.on('online', () => {
     const jid = Math.random().toString(36).substring(7) + '@localhost'
     const password = 'password'
 
-    const entity = new client.Client({ autostart: false, jid, password, port })
+    const entity = new client.Client({ autostart: false, jid, password, port: opts.server.port })
 
     entity.on('error', t.end)
 
@@ -24,7 +33,11 @@ function clientTest (t, Server, port) {
 
     entity.connect()
   })
+
+  c2s.server.listen(err => {
+    t.ifError(err, 'listen')
+  })
 }
 
-test.cb('client:tcp', clientTest, C2S.TCPServer, 10000 + process.pid)
-test.cb('client:ws', clientTest, C2S.WebSocketServer, 10001 + process.pid)
+test.cb('client:tcp', clientTest, { server: tcp, router, autostart: false })
+test.cb('client:ws', clientTest, { server: ws, router, autostart: false })

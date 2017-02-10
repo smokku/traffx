@@ -1,12 +1,9 @@
 const debug = require('debug')('medium:c2s')
-const xmpp = require('node-xmpp-server')
-const redis = require('redis-node')
-const redispub = redis.createClient()
-const redissub = redis.createClient()
 
 function C2S (opts = {}) {
   this.opts = opts
   this.server = opts.server
+  this.router = opts.router
 
   this.server.on('listening', () => {
     let address = this.server.server.address()
@@ -41,7 +38,7 @@ function C2S (opts = {}) {
 
     client.on('online', () => {
       debug('%s ONLINE', client.id, client.jid.toString())
-      this.server.registerRoute(client.jid, client)
+      this.router.registerRoute(client.jid, client)
     })
 
     client.on('stanza', stanza => {
@@ -57,7 +54,7 @@ function C2S (opts = {}) {
       } else {
         stanza.from = client.jid.toString()
       }
-      this.server.route(stanza.attrs.to, stanza)
+      this.router.route(stanza.attrs.to, stanza)
     })
 
     client.on('disconnect', err => {
@@ -67,25 +64,9 @@ function C2S (opts = {}) {
         client.jid,
         err ? `TEARDOWN ${err}` : 'DISCONNECT'
       )
-      this.server.unregisterRoute(client.jid)
+      this.router.unregisterRoute(client.jid)
     })
   })
 }
 
 module.exports = C2S
-
-xmpp._Server.prototype.route = function (jid = '', stanza) {
-  redispub.publish(jid, stanza.toString())
-}
-
-xmpp._Server.prototype.registerRoute = function (jid, client) {
-  redissub.subscribeTo(jid, (channel, stanza, pattern) => {
-    client.send(stanza)
-  })
-  return true
-}
-
-xmpp._Server.prototype.unregisterRoute = function (jid, client) {
-  redissub.unsubscribeFrom(jid)
-  return true
-}
