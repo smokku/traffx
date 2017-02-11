@@ -1,5 +1,6 @@
 const debug = require('debug')('medium:router')
 const redis = require('redis-node')
+const xmpp = require('node-xmpp-core')
 
 function Router (opts = {}) {
   this.opts = opts
@@ -8,12 +9,16 @@ function Router (opts = {}) {
 }
 
 Router.prototype.route = function (jid, stanza) {
-  this.redis.publish(jid, stanza.toString())
+  // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
+  if (!jid) jid = new xmpp.JID(stanza.attrs.from).bare().toString()
+  debug('route', jid, stanza)
+  this.redis.publish('route:' + jid, stanza.toString())
 }
 
 Router.prototype.registerRoute = function (jid, client) {
   debug('registered route %s -> %s', jid, client.id)
-  this.redsub.subscribeTo(jid, (channel, stanza, pattern) => {
+  this.redsub.subscribeTo('route:' + jid, (channel, stanza, pattern) => {
+    debug('got stanza', channel, stanza, pattern)
     client.send(stanza)
   })
   return true
@@ -21,7 +26,7 @@ Router.prototype.registerRoute = function (jid, client) {
 
 Router.prototype.unregisterRoute = function (jid, client) {
   debug('unregistered route %s -> %s', jid, client.id)
-  this.redsub.unsubscribeFrom(jid)
+  this.redsub.unsubscribeFrom('route:' + jid)
   return true
 }
 
