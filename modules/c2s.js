@@ -11,14 +11,15 @@ function C2S (opts = {}) {
       '[%s]:%s LISTENING C2S',
       address.address,
       address.port,
-      this.server.availableSaslMechanisms.map(mech => mech.id)
+      this.server.availableSaslMechanisms.map(mech => mech.id),
+      this.server.constructor.name
     )
   })
 
   this.server.on('connection', client => {
-    let address = client.server.server.address()
-    let socket = client.connection.socket
-    let local = socket.address()
+    const address = client.server.server.address()
+    const socket = client.server.WS ? client.connection.socket.socket._socket : client.connection.socket
+    const local = socket.address()
     debug(
       '[%s]:%s CONNECT [%s]:%s -> [%s]:%s',
       address.address,
