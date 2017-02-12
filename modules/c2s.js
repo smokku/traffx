@@ -66,8 +66,8 @@ function C2S (opts = {}) {
         client.jid,
         err ? `TEARDOWN ${err}` : 'DISCONNECT'
       )
-      this.router.unregisterRoute(client.jid, client)
-      this.router.unregisterRoute(client.jid.bare(), client)
+      this.router.unregisterRoute(client.jid)
+      this.router.unregisterRoute(client.jid.bare())
     })
   })
 }

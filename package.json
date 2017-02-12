@@ -17,7 +17,7 @@
     "junction": "^0.2.0",
     "node-stringprep": "^0.8.0",
     "node-xmpp-server": "^2.2.5",
-    "redis-node": "^0.4.0"
+    "redis": "^2.6.5"
   },
   "devDependencies": {
     "ava": "^0.18.1",
