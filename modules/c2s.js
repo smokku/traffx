@@ -41,6 +41,7 @@ function C2S (opts = {}) {
       debug('%s ONLINE %s', client.id, client.jid)
       this.router.registerRoute(client.jid, client)
       this.router.registerRoute(client.jid.bare(), client)
+      this.router.registerRoute(client.jid.domain, client)
     })
 
     client.on('stanza', stanza => {
@@ -66,8 +67,9 @@ function C2S (opts = {}) {
         client.jid,
         err ? `TEARDOWN ${err}` : 'DISCONNECT'
       )
-      this.router.unregisterRoute(client.jid)
-      this.router.unregisterRoute(client.jid.bare())
+      this.router.unregisterRoute(client.jid, client)
+      this.router.unregisterRoute(client.jid.bare(), client)
+      this.router.unregisterRoute(client.jid.domain, client)
     })
   })
 }
