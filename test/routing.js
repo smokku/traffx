@@ -47,18 +47,15 @@ function messagingTest (t, c2s, from, to) {
       t.is(sess.jid.bare().toString(), from)
 
       // wait for other client to get online
-      setTimeout(
-        () => {
-          var ping = new xmpp.Stanza('iq', {
-            from,
-            to,
-            id: pingId,
-            type: 'get'
-          }).c('ping', { xmlns: 'urn:xmpp:ping' })
-          client.send(ping)
-        },
-        100
-      )
+      setTimeout(() => {
+        var ping = new xmpp.Stanza('iq', {
+          from,
+          to,
+          id: pingId,
+          type: 'get'
+        }).c('ping', { xmlns: 'urn:xmpp:ping' })
+        client.send(ping)
+      }, 100)
     })
 
     client.on('stanza', function (stanza) {
@@ -67,7 +64,6 @@ function messagingTest (t, c2s, from, to) {
           case 'get':
             if (stanza.getChild('ping', 'urn:xmpp:ping')) {
               let pong = new xmpp.Stanza('iq', {
-                from: client.jid,
                 to: stanza.attrs.from,
                 id: stanza.attrs.id,
                 type: 'result'
@@ -77,12 +73,7 @@ function messagingTest (t, c2s, from, to) {
             break
           case 'result':
             t.is(stanza.attrs.id, pingId)
-            setTimeout(
-              () => {
-                client.end()
-              },
-              100
-            )
+            setTimeout(() => client.end(), 100)
             break
         }
       }

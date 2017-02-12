@@ -38,13 +38,13 @@ function C2S (opts = {}) {
     })
 
     client.on('online', () => {
-      debug('%s ONLINE', client.id, client.jid.toString())
+      debug('%s ONLINE %s', client.id, client.jid)
       this.router.registerRoute(client.jid, client)
       this.router.registerRoute(client.jid.bare(), client)
     })
 
     client.on('stanza', stanza => {
-      debug('%s %s STANZA', client.id, client.jid, stanza.toString())
+      debug('%s %s STANZA %s', client.id, client.jid, stanza)
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
       if (
         stanza.is('presence', 'jabber:client') &&
@@ -52,9 +52,9 @@ function C2S (opts = {}) {
             stanza.type
           )
       ) {
-        stanza.from = client.jid.bare().toString()
+        stanza.from = client.jid.bare()
       } else {
-        stanza.from = client.jid.toString()
+        stanza.from = client.jid
       }
       this.router.route(stanza.attrs.to, stanza)
     })
