@@ -68,12 +68,12 @@ function messagingTest (t, c2s, from, to) {
 
     client.on('stanza', function (stanza) {
       if (stanza.is('iq')) {
-        switch (stanza.type) {
+        switch (stanza.attrs.type) {
           case 'get':
             if (stanza.getChild('ping', 'urn:xmpp:ping')) {
               let pong = new xmpp.Stanza('iq', {
-                to: stanza.from,
-                id: stanza.id,
+                to: stanza.attrs.from,
+                id: stanza.attrs.id,
                 type: 'result'
               })
               client.send(pong)
@@ -86,8 +86,8 @@ function messagingTest (t, c2s, from, to) {
         }
       }
       if (stanza.is('message')) {
-        t.is(stanza.from, to)
-        t.is(stanza.to, new xmpp.JID(from).bare().toString())
+        t.is(stanza.attrs.from, to)
+        t.is(stanza.attrs.to, new xmpp.JID(from).bare().toString())
       }
     })
 

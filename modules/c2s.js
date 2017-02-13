@@ -50,12 +50,12 @@ function C2S (opts = {}) {
       if (
         stanza.is('presence', 'jabber:client') &&
           [ 'subscribe', 'subscribed', 'unsubscribe', 'unsubscribed' ].includes(
-            stanza.type
+            stanza.attrs.type
           )
       ) {
-        stanza.from = client.jid.bare()
+        stanza.attr('from', client.jid.bare().toString())
       } else {
-        stanza.from = client.jid
+        stanza.attr('from', client.jid.toString())
       }
       this.router.process(stanza, client)
     })

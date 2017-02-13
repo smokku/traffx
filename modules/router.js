@@ -93,10 +93,10 @@ Router.prototype.queue = function (jid, stanza) {
 }
 
 Router.prototype.process = function (stanza, client) {
+  debug('process %s %s', client.id, stanza)
   stanza.connection = client.connection
   // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
-  let to = stanza.attrs.to || xmpp.JID(stanza.attrs.from).bare().toString()
-  let jid = new xmpp.JID(to)
+  let jid = stanza.attrs.to ? new xmpp.JID(stanza.attrs.to) : new xmpp.JID(stanza.attrs.from).bare()
   if (jid.local) {
     // to user
     if (jid.resource) {
@@ -133,12 +133,11 @@ Router.prototype.isLocal = function (domain) {
 Router.deliver = function (router) {
   return function deliver (stanza, next) {
     // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid
-    let to = stanza.attrs.to
-    if (!to) return next()
-    let jid = new xmpp.JID(to)
+    if (!stanza.attrs.to) return next()
+    let jid = new xmpp.JID(stanza.attrs.to)
     if (router.isLocal(jid.domain) && jid.local && !jid.resource) {
       if (stanza.is('message')) {
-        let type = stanza.type || 'normal'
+        let type = stanza.attrs.type || 'normal'
         switch (type) {
           case 'normal':
           case 'chat':
