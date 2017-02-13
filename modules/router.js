@@ -29,6 +29,8 @@ function Router (opts = {}) {
     this.user.use(junction.dump({ prefix: 'USER: ' }))
   }
   this.user
+    .use(Router.deliver(this))
+  this.user
     .use(junction.serviceUnavailable())
     .use(junction.errorHandler())
 }
@@ -106,5 +108,50 @@ Router.prototype.process = function (stanza, client) {
   } else {
     // to server
     this.server.handle(stanza)
+  }
+}
+
+Router.prototype.isLocal = function (domain) {
+  // FIXME actually check if this is a local domain
+  return true
+}
+// const r = new xmpp.Router()
+// pull packets off router, check validity (proper from, to in serviced domain)
+// pass them to application
+//
+// pull packets from c2s, check validity (replace from with full jid, remove to if self bare jid)
+// pass them to application
+//
+// application build chain similar to what jabberd2 has
+//
+// chain local delivery through redis message queues at the end of app
+//
+// pull packets from queues and pass through app
+
+/* Delivers stanzas addressed to BareJID to connected FullJIDs
+ */
+Router.deliver = function (router) {
+  return function deliver (stanza, next) {
+    // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid
+    let to = stanza.attrs.to
+    if (!to) return next()
+    let jid = new xmpp.JID(to)
+    if (router.isLocal(jid.domain) && jid.local && !jid.resource) {
+      if (stanza.is('message')) {
+        let type = stanza.type || 'normal'
+        switch (type) {
+          case 'normal':
+          case 'chat':
+          case 'headline':
+            // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid-resource
+            // TODO specific rules are a bit different here, bit for now this will do
+            router.route(jid, stanza)
+            return
+          default:
+            // rest - silently ignore
+            return
+        }
+      }
+    } else next()
   }
 }
