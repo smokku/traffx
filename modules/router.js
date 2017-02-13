@@ -2,6 +2,7 @@ const debug = require('debug')('medium:router')
 const redis = require('redis')
 const xmpp = require('node-xmpp-core')
 const EventEmitter = require('events')
+const junction = require('junction')
 
 function Router (opts = {}) {
   this.opts = opts
@@ -9,14 +10,37 @@ function Router (opts = {}) {
   this.redsub = opts.redsub || redis.createClient()
   this._channelEmitter = new EventEmitter()
   this.redsub.on('message', this.onMessage.bind(this))
+  this.server = junction()
+  this.user = junction()
+
+  // process packet to server
+  if (process.env.DEBUG) {
+    this.server.use(junction.dump({ prefix: 'SERVER: ' }))
+  }
+  //
+  this.server
+    .use(junction.serviceUnavailable())
+    .use(junction.errorHandler())
+
+  // process packet to client
+  this.user
+    .use(junction.presenceParser())
+  if (process.env.DEBUG) {
+    this.user.use(junction.dump({ prefix: 'USER: ' }))
+  }
+  this.user
+    .use(junction.serviceUnavailable())
+    .use(junction.errorHandler())
 }
 
+module.exports = Router
+
 Router.prototype.route = function (jid, stanza) {
-  // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
-  if (!jid) jid = new xmpp.JID(stanza.attrs.from).bare().toString()
-  stanza = stanza.toString()
+  if (!jid) {
+    throw new Error('Queue jid required')
+  }
   debug('route %s %s', jid, stanza)
-  this.redis.publish('route:' + jid, stanza)
+  this.redis.publish('route:' + jid, stanza.toString())
 }
 
 Router.prototype.registerRoute = function (jid, client) {
@@ -66,4 +90,21 @@ Router.prototype.queue = function (jid, stanza) {
   this.redis.lpush('queue:' + jid, stanza.toString())
 }
 
-module.exports = Router
+Router.prototype.process = function (stanza, client) {
+  stanza.connection = client.connection
+  // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
+  let to = stanza.attrs.to || xmpp.JID(stanza.attrs.from).bare().toString()
+  let jid = new xmpp.JID(to)
+  if (jid.local) {
+    // to user
+    if (jid.resource) {
+      // direct
+      this.route(jid, stanza)
+    } else {
+      this.user.handle(stanza)
+    }
+  } else {
+    // to server
+    this.server.handle(stanza)
+  }
+}
