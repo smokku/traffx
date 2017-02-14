@@ -33,9 +33,79 @@
   dependencies:
     ansi-styles "^2.2.1"
 
+"@xmpp/client-core@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@xmpp/client-core/-/client-core-0.0.1.tgz#acfd92c1d51cd94349bd9901d5142264db94c346"
+  dependencies:
+    "@xmpp/connection" "^0.0.5"
+
+"@xmpp/client@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@xmpp/client/-/client-0.0.1.tgz#5ba8ff363947e570b27d2977d31abb1cdc297e85"
+  dependencies:
+    "@xmpp/client-core" "^0.0.1"
+    "@xmpp/jid" "^0.0.1"
+    "@xmpp/plugins" "^0.0.2"
+    "@xmpp/xml" "^0.1.0"
+
+"@xmpp/component-core@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@xmpp/component-core/-/component-core-0.0.5.tgz#ca59927fdd5ecb9e6dd84c085f3c4954f776f30b"
+  dependencies:
+    "@xmpp/connection-tcp" "^0.0.5"
+    "@xmpp/xml" "^0.1.2"
+
+"@xmpp/component@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@xmpp/component/-/component-0.0.5.tgz#88f3173caa45be0028dd3b5d2f225b2b3ee0fa90"
+  dependencies:
+    "@xmpp/component-core" "^0.0.5"
+    "@xmpp/jid" "^0.0.1"
+    "@xmpp/plugins" "^0.0.2"
+    "@xmpp/xml" "^0.1.2"
+
+"@xmpp/connection-tcp@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@xmpp/connection-tcp/-/connection-tcp-0.0.5.tgz#6e3ef99759690a62f57f69baf38e676e1fba3961"
+  dependencies:
+    "@xmpp/connection" "^0.0.5"
+    "@xmpp/streamparser" "^0.0.5"
+    "@xmpp/xml" "^0.1.2"
+
+"@xmpp/connection@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@xmpp/connection/-/connection-0.0.5.tgz#324f5278b129ea53a1becb48fd7b8e84e9573f44"
+  dependencies:
+    "@xmpp/jid" "^0.0.1"
+    "@xmpp/streamparser" "^0.0.5"
+
+"@xmpp/console@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@xmpp/console/-/console-0.0.1.tgz#fbc68031d9f35841779ae1e064becf3f24ddabdf"
+  dependencies:
+    "@xmpp/client" "^0.0.1"
+    "@xmpp/component" "^0.0.5"
+    "@xmpp/jid" "^0.0.1"
+    "@xmpp/xml" "^0.1.2"
+    chalk "^1.1.3"
+
 "@xmpp/jid@^0.0.1":
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/@xmpp/jid/-/jid-0.0.1.tgz#c82c3cb6d7fd76637f2f97aec2e0c68942aab0a1"
+
+"@xmpp/plugins@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@xmpp/plugins/-/plugins-0.0.2.tgz#9c826993aab0ec8810394f973fa8af27fef8584a"
+  dependencies:
+    "@xmpp/connection" "^0.0.5"
+    "@xmpp/connection-tcp" "^0.0.5"
+    "@xmpp/jid" "^0.0.1"
+    "@xmpp/time" "^0.0.1"
+    "@xmpp/xml" "^0.1.2"
+    sasl-plain "^0.1.0"
+    sasl-scram-sha-1 "^1.2.0"
+    saslmechanisms "^0.1.1"
+    ws "^1.1.0"
 
 "@xmpp/streamparser@^0.0.4":
   version "0.0.4"
@@ -45,7 +115,19 @@
     inherits "^2.0.3"
     ltx "^2.5.0"
 
-"@xmpp/xml@^0.1.2":
+"@xmpp/streamparser@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@xmpp/streamparser/-/streamparser-0.0.5.tgz#c67aa6c76c4dce0009b92462ad4f02b8b47cfb80"
+  dependencies:
+    "@xmpp/xml" "^0.1.2"
+    inherits "^2.0.3"
+    ltx "^2.5.0"
+
+"@xmpp/time@^0.0.1":
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/@xmpp/time/-/time-0.0.1.tgz#70819bc862d3623e18b87ea3dfeabd9744f99fef"
+
+"@xmpp/xml@^0.1.0", "@xmpp/xml@^0.1.2":
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/@xmpp/xml/-/xml-0.1.2.tgz#d40e2d438486c9e6d1b3a4f92077518adfd71dee"
   dependencies:
@@ -605,6 +687,10 @@ bindings@^1.2.1, bindings@~1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/bindings/-/bindings-1.2.1.tgz#14ad6113812d2d37d72e67b4cacb4bb726505f11"
 
+bitwise-xor@0.0.0:
+  version "0.0.0"
+  resolved "https://registry.yarnpkg.com/bitwise-xor/-/bitwise-xor-0.0.0.tgz#040a8172b5bb8cc562b0b7119f230b2a1a780e3d"
+
 block-stream@*:
   version "0.0.9"
   resolved "https://registry.yarnpkg.com/block-stream/-/block-stream-0.0.9.tgz#13ebfe778a03205cfe03751481ebb4b3300c126a"
@@ -753,6 +839,12 @@ ci-info@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/ci-info/-/ci-info-1.0.0.tgz#dc5285f2b4e251821683681c381c3388f46ec534"
 
+cipher-base@^1.0.1:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/cipher-base/-/cipher-base-1.0.3.tgz#eeabf194419ce900da3018c207d212f2a6df0a07"
+  dependencies:
+    inherits "^2.0.1"
+
 circular-json@^0.3.1:
   version "0.3.1"
   resolved "https://registry.yarnpkg.com/circular-json/-/circular-json-0.3.1.tgz#be8b36aefccde8b3ca7aa2d6afc07a37242c0d2d"
@@ -894,6 +986,22 @@ create-error-class@^3.0.1:
   resolved "https://registry.yarnpkg.com/create-error-class/-/create-error-class-3.0.2.tgz#06be7abef947a3f14a30fd610671d401bca8b7b6"
   dependencies:
     capture-stack-trace "^1.0.0"
+
+create-hash@^1.1.0:
+  version "1.1.2"
+  resolved "https://registry.yarnpkg.com/create-hash/-/create-hash-1.1.2.tgz#51210062d7bb7479f6c65bb41a92208b1d61abad"
+  dependencies:
+    cipher-base "^1.0.1"
+    inherits "^2.0.1"
+    ripemd160 "^1.0.0"
+    sha.js "^2.3.6"
+
+create-hmac@^1.1.3:
+  version "1.1.4"
+  resolved "https://registry.yarnpkg.com/create-hmac/-/create-hmac-1.1.4.tgz#d3fb4ba253eb8b3f56e39ea2fbcb8af747bd3170"
+  dependencies:
+    create-hash "^1.1.0"
+    inherits "^2.0.1"
 
 cross-spawn@^4.0.0:
   version "4.0.2"
@@ -2647,6 +2755,10 @@ randomatic@^1.1.3:
     is-number "^2.0.2"
     kind-of "^3.0.2"
 
+randombytes@^2.0.1:
+  version "2.0.3"
+  resolved "https://registry.yarnpkg.com/randombytes/-/randombytes-2.0.3.tgz#674c99760901c3c4112771a31e521dc349cc09ec"
+
 rc@^1.0.1, rc@^1.1.6, rc@~1.1.6:
   version "1.1.6"
   resolved "https://registry.yarnpkg.com/rc/-/rc-1.1.6.tgz#43651b76b6ae53b5c802f1151fa3fc3b059969c9"
@@ -2902,6 +3014,10 @@ rimraf@2, rimraf@^2.2.8, rimraf@~2.5.1, rimraf@~2.5.4:
   dependencies:
     glob "^7.0.5"
 
+ripemd160@^1.0.0:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/ripemd160/-/ripemd160-1.0.1.tgz#93a4bbd4942bc574b69a8fa57c71de10ecca7d6e"
+
 run-async@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/run-async/-/run-async-0.1.0.tgz#c8ad4a5e110661e402a7d21b530e009f25f8e389"
@@ -2915,6 +3031,23 @@ run-parallel@^1.1.2:
 rx-lite@^3.1.2:
   version "3.1.2"
   resolved "https://registry.yarnpkg.com/rx-lite/-/rx-lite-3.1.2.tgz#19ce502ca572665f3b647b10939f97fd1615f102"
+
+sasl-plain@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/sasl-plain/-/sasl-plain-0.1.0.tgz#cf145e7c02222b64d60c0806d9cd2ae5380426cc"
+
+sasl-scram-sha-1@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/sasl-scram-sha-1/-/sasl-scram-sha-1-1.2.0.tgz#5e974f6d81825965e43a5f2d23ddb47a3660d0bd"
+  dependencies:
+    bitwise-xor "0.0.0"
+    create-hash "^1.1.0"
+    create-hmac "^1.1.3"
+    randombytes "^2.0.1"
+
+saslmechanisms@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/saslmechanisms/-/saslmechanisms-0.1.1.tgz#478be1429500fcfaa780be88b3343ced7d2a9182"
 
 semver-diff@^2.0.0:
   version "2.1.0"
@@ -2933,6 +3066,12 @@ set-blocking@~2.0.0:
 set-immediate-shim@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/set-immediate-shim/-/set-immediate-shim-1.0.1.tgz#4b2b1b27eb808a9f8dcc481a58e5e56f599f3f61"
+
+sha.js@^2.3.6:
+  version "2.4.8"
+  resolved "https://registry.yarnpkg.com/sha.js/-/sha.js-2.4.8.tgz#37068c2c476b6baf402d14a49c67f597921f634f"
+  dependencies:
+    inherits "^2.0.1"
 
 shelljs@^0.7.5:
   version "0.7.6"
@@ -3345,7 +3484,7 @@ write@^0.2.1:
   dependencies:
     mkdirp "^0.5.1"
 
-ws@^1.1.1:
+ws@^1.1.0, ws@^1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/ws/-/ws-1.1.1.tgz#082ddb6c641e85d4bb451f03d52f06eabdb1f018"
   dependencies:

@@ -5,7 +5,8 @@
   "main": "main.js",
   "scripts": {
     "start": "env DEBUG='*' node main.js",
-    "test": "ava --timeout=5s"
+    "test": "ava --timeout=5s",
+    "console": "xmpp-console"
   },
   "repository": {
     "type": "git",
@@ -13,6 +14,7 @@
   },
   "author": "Tomasz Sterna <tomek@xiaoka.com>",
   "dependencies": {
+    "@xmpp/console": "^0.0.1",
     "debug": "^2.6.0",
     "junction": "^0.2.0",
     "node-stringprep": "^0.8.0",
