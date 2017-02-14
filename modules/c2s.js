@@ -57,7 +57,7 @@ function C2S (opts = {}) {
       } else {
         stanza.attr('from', client.jid.toString())
       }
-      this.router.process(stanza, client)
+      this.router.process(stanza)
     })
 
     client.on('disconnect', err => {

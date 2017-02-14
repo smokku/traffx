@@ -6,12 +6,23 @@ const junction = require('junction')
 
 function Router (opts = {}) {
   this.opts = opts
-  this.redis = opts.redis || redis.createClient()
-  this.redsub = opts.redsub || redis.createClient()
+  this.db = opts.db || 0
+  this.prefix = opts.prefix ? opts.prefix + '/' : undefined
+  this.redis = opts.redis ||
+    redis.createClient({ db: this.db, prefix: this.prefix })
+  this.redsub = opts.redsub || this.redis.duplicate()
+
+  // route messaging
   this._channelEmitter = new EventEmitter()
   this.redsub.on('message', this.onMessage.bind(this))
   this.server = junction()
   this.user = junction()
+
+  // queue messaging
+  this.queuePrefix = `__keyspace@${this.redsub.options.db}__:queue:`
+  this.redsub.config('SET', 'notify-keyspace-events', 'Kl')
+  this.redsub.psubscribe(this.queuePrefix + '*')
+  this.redsub.on('pmessage', this.onPMessage.bind(this))
 
   // process packet to server
   if (process.env.DEBUG) {
@@ -37,6 +48,8 @@ function Router (opts = {}) {
 
 module.exports = Router
 
+/* Push stanza to directly connected client(s)
+ */
 Router.prototype.route = function (jid, stanza) {
   if (!jid) {
     throw new Error('Queue jid required')
@@ -84,30 +97,69 @@ Router.prototype.onMessage = function (channel, message) {
   this._channelEmitter.emit(channel, message)
 }
 
+/* Enqueue delivery to JID
+ */
 Router.prototype.queue = function (jid, stanza) {
   if (!jid) {
     throw new Error('Queue jid required')
   }
   debug('queue %s %s', jid, stanza)
-  this.redis.lpush('queue:' + jid, stanza.toString())
+  this.redis.lpush('queue:' + jid, stanza.toString(), function (err, res) {
+    if (err) debug('queue %s FAILED', err)
+  })
 }
 
-Router.prototype.process = function (stanza, client) {
-  debug('process %s %s', client.id, stanza)
-  stanza.connection = client.connection
+Router.prototype.onPMessage = function (pattern, channel, message) {
+  debug('pmessage', pattern, channel, message)
+  if (message === 'lpush' && channel.startsWith(this.queuePrefix)) {
+    let queue = channel.substr(this.queuePrefix.length)
+    let jid = new xmpp.JID(queue)
+    queue = `queue:${queue}`
+    if (!jid) {
+      throw new Error(`Cannot handle ${queue}`)
+    }
+    // FIXME!!!
+    this.redis.lrange(queue, 0, -1, function (err, elements) {
+      debug(queue, err, elements)
+    })
+    // 1. lock queue
+    // 2. rpull from queue
+    // 3. if no more, unlock queue, break
+    // 4. dispatch stanza to other queues
+    // 5. prolong lock
+    // 6. goto 1
+    if (jid.local) {
+      // to user
+      if (jid.resource) {
+      } else {
+        // this.user.handle(stanza)
+      }
+    } else {
+      // this.server.handle(stanza)
+    }
+  }
+}
+
+/* Process server inbound stanza (from c2s, s2s or internally generated)
+ */
+Router.prototype.process = function (stanza) {
+  debug('process %s', stanza)
   // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
-  let jid = stanza.attrs.to ? new xmpp.JID(stanza.attrs.to) : new xmpp.JID(stanza.attrs.from).bare()
+  let jid = stanza.attrs.to
+    ? new xmpp.JID(stanza.attrs.to)
+    : new xmpp.JID(stanza.attrs.from).bare()
   if (jid.local) {
     // to user
     if (jid.resource) {
       // direct
       this.route(jid, stanza)
     } else {
-      this.user.handle(stanza)
+      // dispatched
+      this.queue(jid, stanza)
     }
   } else {
     // to server
-    this.server.handle(stanza)
+    this.queue(jid, stanza)
   }
 }
 

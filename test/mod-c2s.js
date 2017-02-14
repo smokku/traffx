@@ -4,8 +4,10 @@ import xmpp from 'node-xmpp-client'
 import { C2S } from 'node-xmpp-server'
 import ModC2S from '../modules/c2s'
 import Router from '../modules/router'
+import path from 'path'
 
-const router = new Router()
+const testName = path.basename(__filename, '.js')
+const router = new Router({ db: 1, prefix: testName })
 const tcp = new C2S.TCPServer({ port: 10000 + process.pid })
 const ws = new C2S.WebSocketServer({ port: 10001 + process.pid })
 
