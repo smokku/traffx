@@ -1,5 +1,6 @@
 const debug = require('debug')('medium:router')
 const redis = require('redis')
+const Redlock = require('redlock')
 const xmpp = require('node-xmpp-core')
 const EventEmitter = require('events')
 const junction = require('junction')
@@ -13,12 +14,17 @@ function Router (opts = {}) {
   this.redis = opts.redis ||
     redis.createClient({ db: this.db, prefix: this.prefix })
   this.redsub = opts.redsub || this.redis.duplicate()
+  this.redlock = new Redlock([ this.redis ])
+
+  this.redis.on('error', console.error)
+  this.redlock.on('clientError', console.error)
 
   // route messaging
   this._channelEmitter = new EventEmitter()
   this.redsub.on('message', this.onMessage.bind(this))
 
   // queue messaging
+  this.queueLock = 3000
   this.queuePrefix = `__keyspace@${this.redsub.options.db}__:queue:`
   this.redsub.config('SET', 'notify-keyspace-events', 'Kl')
   this.redsub.psubscribe(this.queuePrefix + '*')
@@ -78,7 +84,7 @@ Router.prototype.registerRoute = function (jid, client) {
     throw new Error('Invalid client to subscribe')
   }
   var channel = 'route:' + jid
-  var listener = (stanza) => {
+  var listener = stanza => {
     debug('got stanza', stanza)
     client.send(stanza)
   }
@@ -95,7 +101,9 @@ Router.prototype.unregisterRoute = function (jid, client) {
     throw new Error('Invalid client to unsubscribe')
   }
   var channel = 'route:' + jid
-  var listener = this._channelEmitter.listeners(channel).find(listener => listener.client === client)
+  var listener = this._channelEmitter
+    .listeners(channel)
+    .find(listener => listener.client === client)
   if (!listener) {
     // FIXME throw new Error(`No listener for ${client.id} on ${channel}`)
     return
@@ -129,29 +137,47 @@ Router.prototype.onPMessage = function (pattern, channel, message) {
   if (message === 'lpush' && channel.startsWith(this.queuePrefix)) {
     let queue = channel.substr(this.queuePrefix.length)
     let jid = new xmpp.JID(queue)
+    let lock = `lock:${queue}`
     queue = `queue:${queue}`
     if (!jid) {
       throw new Error(`Cannot handle ${queue}`)
     }
-    // FIXME!!!
-    this.redis.lrange(queue, 0, -1, function (err, elements) {
-      debug(queue, err, elements)
-    })
-    // 1. lock queue
-    // 2. rpull from queue
-    // 3. if no more, unlock queue, break
-    // 4. dispatch stanza to other queues
-    // 5. prolong lock
-    // 6. goto 1
-    if (jid.local) {
-      // to user
-      if (jid.resource) {
-      } else {
-        // this.user.handle(stanza)
-      }
-    } else {
-      // this.server.handle(stanza)
+    let processQueue = lock => {
+      this.redis.rpop(queue, (err, stanza) => {
+        debug('!!! popped', err, stanza)
+        if (err) {
+          console.error('queue %s', queue, err)
+        }
+        if (!err && stanza) {
+          this.dispatch(jid, stanza)
+          // extend lock and process next queue stanza
+          // if failed to extend, this means that someone else is processing
+          // the queue already, so we are ok with this
+          lock.extend(this.queueLock).then(processQueue)
+        } else {
+          lock.unlock().catch(err => {
+            // we weren't able to reach redis; your lock will eventually expire
+            console.error('queue %s', queue, err)
+          })
+        }
+      })
     }
+    this.redlock.lock(lock, this.queueLock).then(processQueue)
+  }
+}
+
+/* Dispatch stanza coming from queue to other queues/routes
+ */
+Router.prototype.dispatch = function (jid, stanza) {
+  debug('dispatch %s', jid, stanza)
+  if (jid.local) {
+    // to user
+    if (jid.resource) {
+    } else {
+      // this.user.handle(stanza)
+    }
+  } else {
+    // this.server.handle(stanza)
   }
 }
 
@@ -210,7 +236,7 @@ Router.deliver = function (router) {
           case 'chat':
           case 'headline':
             // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid-resource
-            // TODO specific rules are a bit different here, bit for now this will do
+            // TODO specific rules are a bit different here, but for now this will do
             router.route(jid, stanza)
             return
           default:
