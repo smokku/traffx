@@ -2090,7 +2090,31 @@ jsx-ast-utils@^1.3.3:
   dependencies:
     object-assign "^4.1.0"
 
-junction@^0.2.0:
+junction-lastactivity@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/junction-lastactivity/-/junction-lastactivity-0.1.0.tgz#cb3702abdb8a14929e3ef5e96dc637c3e04c65ac"
+  dependencies:
+    junction "0.2.x"
+
+junction-ping@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/junction-ping/-/junction-ping-0.1.0.tgz#21b26684163817a5385130f0030d534b1a5e757f"
+  dependencies:
+    junction "0.2.x"
+
+junction-softwareversion@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/junction-softwareversion/-/junction-softwareversion-0.1.0.tgz#6abd6a06a34009f3723d9e075af322dfb7804894"
+  dependencies:
+    junction "0.2.x"
+
+junction-time@^0.1.0:
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/junction-time/-/junction-time-0.1.0.tgz#93da3fdb7ff2a9c673841d9b4663d980c57f6d35"
+  dependencies:
+    junction "0.2.x"
+
+junction@0.2.x, junction@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/junction/-/junction-0.2.0.tgz#5dd975ea07a8aaf8c1b64cc4d48dcbc454f0c78e"
   dependencies:

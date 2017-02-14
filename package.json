@@ -17,6 +17,10 @@
     "@xmpp/console": "^0.0.1",
     "debug": "^2.6.0",
     "junction": "^0.2.0",
+    "junction-lastactivity": "^0.1.0",
+    "junction-ping": "^0.1.0",
+    "junction-softwareversion": "^0.1.0",
+    "junction-time": "^0.1.0",
     "node-stringprep": "^0.8.0",
     "node-xmpp-server": "^2.2.5",
     "redis": "^2.6.5"

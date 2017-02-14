@@ -3,6 +3,8 @@ const redis = require('redis')
 const xmpp = require('node-xmpp-core')
 const EventEmitter = require('events')
 const junction = require('junction')
+const pjson = require('../package.json')
+const os = require('os')
 
 function Router (opts = {}) {
   this.opts = opts
@@ -15,8 +17,6 @@ function Router (opts = {}) {
   // route messaging
   this._channelEmitter = new EventEmitter()
   this.redsub.on('message', this.onMessage.bind(this))
-  this.server = junction()
-  this.user = junction()
 
   // queue messaging
   this.queuePrefix = `__keyspace@${this.redsub.options.db}__:queue:`
@@ -25,25 +25,40 @@ function Router (opts = {}) {
   this.redsub.on('pmessage', this.onPMessage.bind(this))
 
   // process packet to server
+  var server = this.server = junction()
   if (process.env.DEBUG) {
-    this.server.use(junction.dump({ prefix: 'SERVER: ' }))
+    server.use(junction.dump({ prefix: 'SERVER: ' }))
   }
-  //
-  this.server
-    .use(junction.serviceUnavailable())
-    .use(junction.errorHandler())
+  server
+    .use(require('junction-lastactivity')())
+    .use(require('junction-ping')())
+    .use(
+      require('junction-softwareversion')(pjson.name, pjson.version, os.type())
+    )
+    .use(require('junction-time')())
+    .use(
+      junction.middleware.serviceDiscovery(
+        [ { category: 'server', type: 'im' } ],
+        [
+          'http://jabber.org/protocol/disco#info',
+          // 'http://jabber.org/protocol/disco#items', // FIXME
+          'jabber:iq:last',
+          'urn:xmpp:ping',
+          'jabber:iq:version',
+          'urn:xmpp:time'
+        ]
+      )
+    )
+  server.use(junction.serviceUnavailable()).use(junction.errorHandler())
 
   // process packet to client
-  this.user
-    .use(junction.presenceParser())
+  var user = this.user = junction()
+  user.use(junction.presenceParser())
   if (process.env.DEBUG) {
-    this.user.use(junction.dump({ prefix: 'USER: ' }))
+    user.use(junction.dump({ prefix: 'USER: ' }))
   }
-  this.user
-    .use(Router.deliver(this))
-  this.user
-    .use(junction.serviceUnavailable())
-    .use(junction.errorHandler())
+  user.use(require('junction-lastactivity')()).use(Router.deliver(this))
+  user.use(junction.serviceUnavailable()).use(junction.errorHandler())
 }
 
 module.exports = Router
