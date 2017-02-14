@@ -25,10 +25,9 @@ function Router (opts = {}) {
 
   // queue messaging
   this.queueLock = 3000
-  this.queuePrefix = `__keyspace@${this.redsub.options.db}__:queue:`
-  this.redsub.config('SET', 'notify-keyspace-events', 'Kl')
-  this.redsub.psubscribe(this.queuePrefix + '*')
-  this.redsub.on('pmessage', this.onPMessage.bind(this))
+  this.queueChannel = `__keyevent@${this.redsub.options.db}__:lpush`
+  this.redsub.config('SET', 'notify-keyspace-events', 'El')
+  this.redsub.subscribe(this.queueChannel)
 
   // process packet to server
   var server = this.server = junction()
@@ -38,9 +37,8 @@ function Router (opts = {}) {
   server
     .use(require('junction-lastactivity')())
     .use(require('junction-ping')())
-    .use(
-      require('junction-softwareversion')(pjson.name, pjson.version, os.type())
-    )
+    .use(require('junction-softwareversion')(
+      pjson.name, pjson.version, os.type()))
     .use(require('junction-time')())
     .use(
       junction.middleware.serviceDiscovery(
@@ -53,18 +51,36 @@ function Router (opts = {}) {
           'jabber:iq:version',
           'urn:xmpp:time'
         ]
-      )
-    )
-  server.use(junction.serviceUnavailable()).use(junction.errorHandler())
+      ))
+  server
+    .use(junction.serviceUnavailable())
+    .use(junction.errorHandler())
+  if (process.env.DEBUG) {
+    server.use((err, stanza, resp, next) => {
+      debug('SERVERDONE: %s %s %s', err, stanza, resp)
+      next()
+    })
+  }
 
   // process packet to client
   var user = this.user = junction()
-  user.use(junction.presenceParser())
   if (process.env.DEBUG) {
     user.use(junction.dump({ prefix: 'USER: ' }))
   }
-  user.use(require('junction-lastactivity')()).use(Router.deliver(this))
-  user.use(junction.serviceUnavailable()).use(junction.errorHandler())
+  user
+    .use(junction.presenceParser())
+  user
+    .use(require('junction-lastactivity')())
+    .use(Router.deliver(this))
+  user
+    .use(junction.serviceUnavailable())
+    .use(junction.errorHandler())
+  if (process.env.DEBUG) {
+    user.use((err, stanza, resp, next) => {
+      debug('USERDONE: %s %s %s', err, stanza, resp)
+      next()
+    })
+  }
 }
 
 module.exports = Router
@@ -115,11 +131,6 @@ Router.prototype.unregisterRoute = function (jid, client) {
   })
 }
 
-Router.prototype.onMessage = function (channel, message) {
-  debug('message', channel, message)
-  this._channelEmitter.emit(channel, message)
-}
-
 /* Enqueue delivery to JID
  */
 Router.prototype.queue = function (jid, stanza) {
@@ -132,52 +143,61 @@ Router.prototype.queue = function (jid, stanza) {
   })
 }
 
-Router.prototype.onPMessage = function (pattern, channel, message) {
-  debug('pmessage', pattern, channel, message)
-  if (message === 'lpush' && channel.startsWith(this.queuePrefix)) {
-    let queue = channel.substr(this.queuePrefix.length)
-    let jid = new xmpp.JID(queue)
-    let lock = `lock:${queue}`
-    queue = `queue:${queue}`
-    if (!jid) {
-      throw new Error(`Cannot handle ${queue}`)
-    }
-    let processQueue = lock => {
-      this.redis.rpop(queue, (err, stanza) => {
-        debug('!!! popped', err, stanza)
-        if (err) {
-          console.error('queue %s', queue, err)
-        }
-        if (!err && stanza) {
-          this.dispatch(jid, stanza)
-          // extend lock and process next queue stanza
-          // if failed to extend, this means that someone else is processing
-          // the queue already, so we are ok with this
-          lock.extend(this.queueLock).then(processQueue)
-        } else {
-          lock.unlock().catch(err => {
-            // we weren't able to reach redis; your lock will eventually expire
+Router.prototype.onMessage = function (channel, message) {
+  debug('message', channel, message)
+  if (channel.startsWith('__')) { // keyspace notification
+    if (channel === this.queueChannel) {
+      let name = message.substr(`${this.prefix || ''}queue:`.length)
+      let jid = new xmpp.JID(name)
+      let queue = `queue:${name}`
+      let lock = `lock:${name}`
+      if (!jid) {
+        throw new Error(`Cannot handle ${queue}`)
+      }
+      let processQueue = lock => {
+        this.redis.rpop(queue, (err, stanza) => {
+          if (err) {
             console.error('queue %s', queue, err)
-          })
-        }
-      })
+          }
+          if (!err && stanza) {
+            this.dispatch(jid, stanza)
+            // extend lock and process next queue stanza
+            // if failed to extend, this means that someone else is processing
+            // the queue already, so we are ok with this
+            lock.extend(this.queueLock).then(processQueue)
+          } else {
+            lock.unlock().catch(err => {
+              // we weren't able to reach redis; your lock will eventually expire
+              console.error('queue %s', queue, err)
+            })
+          }
+        })
+      }
+      this.redlock.lock(lock, this.queueLock).then(processQueue)
     }
-    this.redlock.lock(lock, this.queueLock).then(processQueue)
+  } else {
+    // stanza routing
+    this._channelEmitter.emit(channel, message)
   }
 }
 
 /* Dispatch stanza coming from queue to other queues/routes
  */
-Router.prototype.dispatch = function (jid, stanza) {
-  debug('dispatch %s', jid, stanza)
+Router.prototype.dispatch = function (jid, packet) {
+  debug('dispatch %s', jid, packet)
+  let stanza = xmpp.parse(packet)
+  if (!stanza) {
+    throw new Error(`Failed to dispatch: ${packet}`)
+  }
   if (jid.local) {
     // to user
     if (jid.resource) {
+      throw new Error('No FullJID dispatcher') // yet?
     } else {
-      // this.user.handle(stanza)
+      this.user.handle(stanza)
     }
   } else {
-    // this.server.handle(stanza)
+    this.server.handle(stanza)
   }
 }
 
