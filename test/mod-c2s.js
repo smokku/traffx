@@ -5,6 +5,8 @@ import { C2S } from 'node-xmpp-server'
 import ModC2S from '../modules/c2s'
 import Router from '../modules/router'
 import path from 'path'
+import net from 'net'
+import crypto from 'crypto'
 
 const testName = path.basename(__filename, '.js')
 const router = new Router({ db: 1, prefix: testName })
@@ -12,21 +14,25 @@ const tcp = new C2S.TCPServer({ port: 10000 + process.pid })
 const ws = new C2S.WebSocketServer({ port: 10001 + process.pid })
 
 function clientTest (t, opts) {
-  t.plan(4)
+  t.plan(6)
 
   const c2s = new ModC2S(opts)
   if (c2s.server.WS) {
     var websocket = {
       url: `ws://localhost:${opts.server.port}/xmpp-websocket`
     }
+    t.plan(6)
+  } else {
+    t.plan(7)
   }
 
   c2s.server.on('connection', connection => {
-    t.pass()
+    // does not happen on empty TCP connect/disconnect on WebSocket
+    t.pass('connection')
   })
 
   c2s.server.on('online', () => {
-    t.pass()
+    t.pass('online')
 
     const jid = Math.random().toString(36).substring(7) + '@localhost'
 
@@ -47,7 +53,20 @@ function clientTest (t, opts) {
 
     client.on('end', t.end)
 
-    client.connect()
+    // test empty connect/disconnect first
+    const conn = new net.Socket()
+    conn.connect(opts.server.port, '127.0.0.1', () => {
+      t.pass('connect')
+      // push some random garbage
+      conn.write(crypto.randomBytes(2048))
+      // and disconnect
+      conn.destroy()
+    })
+    conn.on('close', () => {
+      t.pass('disconnect')
+      // now connect real client
+      client.connect()
+    })
   })
 
   c2s.server.listen(err => {
