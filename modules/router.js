@@ -55,12 +55,6 @@ function Router (opts = {}) {
   server
     .use(junction.serviceUnavailable())
     .use(junction.errorHandler())
-  if (process.env.DEBUG) {
-    server.use((err, stanza, resp, next) => {
-      debug('SERVERDONE: %s %s %s', err, stanza, resp)
-      next()
-    })
-  }
 
   // process packet to client
   var user = this.user = junction()
@@ -75,12 +69,6 @@ function Router (opts = {}) {
   user
     .use(junction.serviceUnavailable())
     .use(junction.errorHandler())
-  if (process.env.DEBUG) {
-    user.use((err, stanza, resp, next) => {
-      debug('USERDONE: %s %s %s', err, stanza, resp)
-      next()
-    })
-  }
 }
 
 module.exports = Router
@@ -139,7 +127,7 @@ Router.prototype.queue = function (jid, stanza) {
   }
   debug('queue %s %s', jid, stanza)
   this.redis.lpush('queue:' + jid, stanza.toString(), function (err, res) {
-    if (err) debug('queue %s FAILED', err)
+    if (err) console.error('queue %s', jid, err)
   })
 }
 
@@ -189,15 +177,37 @@ Router.prototype.dispatch = function (jid, packet) {
   if (!stanza) {
     throw new Error(`Failed to dispatch: ${packet}`)
   }
+
+  let router = this
+  stanza.send = function (stanza) {
+    router.process(stanza)
+  }
+
+  let response = null
+  if (
+    stanza.is('iq') &&
+      (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
+  ) {
+    response = new xmpp.Stanza('iq', {
+      id: stanza.attrs.id,
+      from: jid.toString(),
+      to: stanza.attrs.from,
+      type: 'result'
+    })
+    response.send = function () {
+      router.process(this)
+    }
+  }
+
   if (jid.local) {
     // to user
     if (jid.resource) {
       throw new Error('No FullJID dispatcher') // yet?
     } else {
-      this.user.handle(stanza)
+      this.user.handle(stanza, response, err => { if (err) console.error(err) })
     }
   } else {
-    this.server.handle(stanza)
+    this.server.handle(stanza, response, err => { if (err) console.error(err) })
   }
 }
 
@@ -205,6 +215,9 @@ Router.prototype.dispatch = function (jid, packet) {
  */
 Router.prototype.process = function (stanza) {
   debug('process %s', stanza)
+  if (!stanza || !stanza.attrs) {
+    throw new Error('Need stanza to process')
+  }
   // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
   let jid = stanza.attrs.to
     ? new xmpp.JID(stanza.attrs.to)
