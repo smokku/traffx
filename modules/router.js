@@ -7,8 +7,14 @@ const junction = require('junction')
 const pjson = require('../package.json')
 const os = require('os')
 
+const markerLocal = '!'
+const markerRemote = '^'
+
 function Router (opts = {}) {
   this.opts = opts
+
+  this.router = opts.router
+
   this.db = opts.db || 0
   this.prefix = opts.prefix ? opts.prefix + '/' : undefined
   this.redis = opts.redis ||
@@ -77,7 +83,7 @@ module.exports = Router
  */
 Router.prototype.route = function (jid, stanza) {
   if (!jid) {
-    throw new Error('Queue jid required')
+    throw new Error('Route jid required')
   }
   debug('route %s %s', jid, stanza)
   this.redis.publish('route:' + jid, stanza.toString())
@@ -121,14 +127,18 @@ Router.prototype.unregisterRoute = function (jid, client) {
 
 /* Enqueue delivery to JID
  */
-Router.prototype.queue = function (jid, stanza) {
+Router.prototype.queue = function (local, jid, stanza) {
   if (!jid) {
     throw new Error('Queue jid required')
   }
   debug('queue %s %s', jid, stanza)
-  this.redis.lpush('queue:' + jid, stanza.toString(), function (err, res) {
-    if (err) console.error('queue %s', jid, err)
-  })
+  this.redis.lpush(
+    'queue:' + jid,
+    (local ? markerLocal : markerRemote) + stanza.toString(),
+    function (err, res) {
+      if (err) console.error('queue %s', jid, err)
+    }
+  )
 }
 
 Router.prototype.onMessage = function (channel, message) {
@@ -148,7 +158,9 @@ Router.prototype.onMessage = function (channel, message) {
             console.error('queue %s', queue, err)
           }
           if (!err && stanza) {
-            this.dispatch(jid, stanza)
+            let local = stanza[0] === markerLocal
+            stanza = stanza.slice(1)
+            this.dispatch(local, jid, stanza)
             // extend lock and process next queue stanza
             // if failed to extend, this means that someone else is processing
             // the queue already, so we are ok with this
@@ -171,88 +183,77 @@ Router.prototype.onMessage = function (channel, message) {
 
 /* Dispatch stanza coming from queue to other queues/routes
  */
-Router.prototype.dispatch = function (jid, packet) {
+Router.prototype.dispatch = function (local, jid, packet) {
   debug('dispatch %s', jid, packet)
   let stanza = xmpp.parse(packet)
   if (!stanza) {
     throw new Error(`Failed to dispatch: ${packet}`)
   }
 
-  let router = this
-  stanza.send = function (stanza) {
-    router.process(stanza)
-  }
+  if (local) {
+    let router = this
 
-  let response = null
-  if (
-    stanza.is('iq') &&
-      (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
-  ) {
-    response = new xmpp.Stanza('iq', {
-      id: stanza.attrs.id,
-      from: jid.toString(),
-      to: stanza.attrs.from,
-      type: 'result'
-    })
-    response.send = function () {
-      router.process(this)
+    stanza.send = function (stanza) {
+      router.process(stanza)
     }
-  }
 
-  if (jid.local) {
-    // to user
-    if (jid.resource) {
-      throw new Error('No FullJID dispatcher') // yet?
+    let response = null
+    if (
+      stanza.is('iq') &&
+        (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
+    ) {
+      response = new xmpp.Stanza('iq', {
+        id: stanza.attrs.id,
+        from: jid.toString(),
+        to: stanza.attrs.from,
+        type: 'result'
+      })
+      response.send = function () {
+        router.process(this)
+      }
+    }
+
+    if (jid.local) {
+      // to user
+      if (jid.resource) {
+        throw new Error('No FullJID dispatcher') // yet?
+      } else {
+        this.user.handle(stanza, response, err => { if (err) console.error(err) })
+      }
     } else {
-      this.user.handle(stanza, response, err => { if (err) console.error(err) })
+      this.server.handle(stanza, response, err => { if (err) console.error(err) })
     }
   } else {
-    this.server.handle(stanza, response, err => { if (err) console.error(err) })
+    if (jid.local || jid.resource) {
+      this.queue(local, jid.domain, stanza)
+    } else {
+      this.router.send(stanza)
+    }
   }
 }
 
 /* Process server inbound stanza (from c2s, s2s or internally generated)
  */
-Router.prototype.process = function (stanza) {
-  debug('process %s', stanza)
+Router.prototype.process = function (stanza, local) {
+  debug('process %s', stanza, local)
   if (!stanza || !stanza.attrs) {
     throw new Error('Need stanza to process')
   }
   // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
-  let jid = stanza.attrs.to
+  // s2s packets was already checked for proper to/from
+  let to = stanza.attrs.to
     ? new xmpp.JID(stanza.attrs.to)
     : new xmpp.JID(stanza.attrs.from).bare()
-  if (jid.local) {
-    // to user
-    if (jid.resource) {
-      // direct
-      this.route(jid, stanza)
-    } else {
-      // dispatched
-      this.queue(jid, stanza)
-    }
+  let from = new xmpp.JID(stanza.attrs.from)
+  local = local != null ? local : to.domain === from.domain
+  if (local && to.local && to.resource) {
+    // direct
+    this.route(to, stanza)
   } else {
-    // to server
-    this.queue(jid, stanza)
+    // dispatched
+    this.queue(local, to, stanza)
   }
 }
-
-Router.prototype.isLocal = function (domain) {
-  // FIXME actually check if this is a local domain
-  return true
-}
-// const r = new xmpp.Router()
-// pull packets off router, check validity (proper from, to in serviced domain)
-// pass them to application
-//
-// pull packets from c2s, check validity (replace from with full jid, remove to if self bare jid)
-// pass them to application
-//
-// application build chain similar to what jabberd2 has
-//
-// chain local delivery through redis message queues at the end of app
-//
-// pull packets from queues and pass through app
 
 /* Delivers stanzas addressed to BareJID to connected FullJIDs
  */
@@ -261,7 +262,7 @@ Router.deliver = function (router) {
     // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid
     if (!stanza.attrs.to) return next()
     let jid = new xmpp.JID(stanza.attrs.to)
-    if (router.isLocal(jid.domain) && jid.local && !jid.resource) {
+    if (jid.local && !jid.resource) {
       if (stanza.is('message')) {
         let type = stanza.attrs.type || 'normal'
         switch (type) {

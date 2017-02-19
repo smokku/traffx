@@ -1,3 +1,9 @@
 - expire queue: items
   - catch expiry through keyspace notification and process ass usuall
+- rename to 'traffic'
+- isLocal simplify:
+  - treat all incoming s2s domains as local
+  - incoming c2s:
+    - local if from domain same as to
+  - route non-local via s2s
 
