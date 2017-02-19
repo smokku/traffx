@@ -11,6 +11,9 @@ DomainContext.prototype.receive = function (stanza) {
   debug('router receive %s', stanza)
   // https://xmpp.org/rfcs/rfc6120.html#stanzas-attributes
   if (stanza.attrs.to && stanza.attrs.from) {
+    if (stanza.attrs.xmlns === 'jabber:server') {
+      stanza.attrs.xmlns = 'jabber:client'
+    }
     router.process(stanza, true)
   }
 }

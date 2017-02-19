@@ -227,6 +227,10 @@ Router.prototype.dispatch = function (local, jid, packet) {
     if (jid.local || jid.resource) {
       this.queue(local, jid.domain, stanza)
     } else {
+      // pass to s2s router
+      if (stanza.attrs.xmlns === 'jabber:client') {
+        stanza.attrs.xmlns = 'jabber:server'
+      }
       this.router.send(stanza)
     }
   }
