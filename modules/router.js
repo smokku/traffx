@@ -71,7 +71,7 @@ function Router (opts = {}) {
     .use(junction.presenceParser())
   user
     .use(require('junction-lastactivity')())
-    .use(Router.deliver(this))
+    .use(require('./deliver')(this))
   user
     .use(junction.serviceUnavailable())
     .use(junction.errorHandler())
@@ -256,32 +256,5 @@ Router.prototype.process = function (stanza, local) {
   } else {
     // dispatched
     this.queue(local, to, stanza)
-  }
-}
-
-/* Delivers stanzas addressed to BareJID to connected FullJIDs
- */
-Router.deliver = function (router) {
-  return function deliver (stanza, next) {
-    // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid
-    if (!stanza.attrs.to) return next()
-    let jid = new xmpp.JID(stanza.attrs.to)
-    if (jid.local && !jid.resource) {
-      if (stanza.is('message')) {
-        let type = stanza.attrs.type || 'normal'
-        switch (type) {
-          case 'normal':
-          case 'chat':
-          case 'headline':
-            // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid-resource
-            // TODO specific rules are a bit different here, but for now this will do
-            router.route(jid, stanza)
-            return
-          default:
-            // rest - silently ignore
-            return
-        }
-      }
-    } else next()
   }
 }
