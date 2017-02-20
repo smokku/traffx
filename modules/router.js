@@ -70,6 +70,7 @@ function Router (opts = {}) {
   user
     .use(junction.presenceParser())
   user
+    .use(require('./roster')())
     .use(require('junction-lastactivity')())
     .use(require('./deliver')(this))
   user
@@ -181,6 +182,22 @@ Router.prototype.onMessage = function (channel, message) {
   }
 }
 
+/* Build iq-response for iq-get or iq-set stanza
+ */
+Router.prototype.iqResponse = function (from, stanza) {
+  if (
+    stanza.is('iq') &&
+      (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
+  ) {
+    return new xmpp.Stanza('iq', {
+      id: stanza.attrs.id,
+      from: from.toString(),
+      to: stanza.attrs.from,
+      type: 'result'
+    })
+  }
+}
+
 /* Dispatch stanza coming from queue to other queues/routes
  */
 Router.prototype.dispatch = function (local, jid, packet) {
@@ -197,17 +214,8 @@ Router.prototype.dispatch = function (local, jid, packet) {
       router.process(stanza)
     }
 
-    let response = null
-    if (
-      stanza.is('iq') &&
-        (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
-    ) {
-      response = new xmpp.Stanza('iq', {
-        id: stanza.attrs.id,
-        from: jid.toString(),
-        to: stanza.attrs.from,
-        type: 'result'
-      })
+    let response = this.iqResponse(jid, stanza)
+    if (response) {
       response.send = function () {
         router.process(this)
       }
