@@ -14,6 +14,11 @@ function Router (opts = {}) {
   this.opts = opts
 
   this.router = opts.router
+  this.storage = opts.storage
+
+  this.dumpExceptions = opts.dumpExceptions != null
+    ? opts.dumpExceptions
+    : true
 
   this.db = opts.db || 0
   this.prefix = opts.prefix ? opts.prefix + '/' : undefined
@@ -43,8 +48,9 @@ function Router (opts = {}) {
   server
     .use(require('junction-lastactivity')())
     .use(require('junction-ping')())
-    .use(require('junction-softwareversion')(
-      pjson.name, pjson.version, os.type()))
+    .use(
+      require('junction-softwareversion')(pjson.name, pjson.version, os.type())
+    )
     .use(require('junction-time')())
     .use(
       junction.middleware.serviceDiscovery(
@@ -57,10 +63,11 @@ function Router (opts = {}) {
           'jabber:iq:version',
           'urn:xmpp:time'
         ]
-      ))
+      )
+    )
   server
     .use(junction.serviceUnavailable())
-    .use(junction.errorHandler())
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
   // process packet to client
   var user = this.user = junction()
@@ -70,12 +77,12 @@ function Router (opts = {}) {
   user
     .use(junction.presenceParser())
   user
-    .use(require('./roster')())
+    .use(require('./roster')(this))
     .use(require('junction-lastactivity')())
     .use(require('./deliver')(this))
   user
     .use(junction.serviceUnavailable())
-    .use(junction.errorHandler())
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 }
 
 module.exports = Router
@@ -210,15 +217,16 @@ Router.prototype.dispatch = function (local, jid, packet) {
   if (local) {
     let router = this
 
-    stanza.send = function (stanza) {
-      router.process(stanza)
-    }
-
     let response = this.iqResponse(jid, stanza)
     if (response) {
       response.send = function () {
         router.process(this)
       }
+    }
+
+    stanza.to = jid.toString()
+    stanza.send = function (stanza) {
+      router.process(stanza)
     }
 
     if (jid.local) {
