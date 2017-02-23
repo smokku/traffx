@@ -1,18 +1,24 @@
-const StanzaError = require('junction').StanzaError
+const { StanzaError } = require('junction')
+const dynamoose = require('dynamoose')
+const xmpp = require('node-xmpp-core')
 
-const tableName = 'RosterItems'
-const rosterTable = {
-  AttributeDefinitions: [
-    { AttributeName: 'User', AttributeType: 'S' },
-    { AttributeName: 'jid', AttributeType: 'S' }
-  ],
-  KeySchema: [
-    { AttributeName: 'User', KeyType: 'HASH' },
-    { AttributeName: 'jid', KeyType: 'RANGE' }
-  ],
-  ProvisionedThroughput: { ReadCapacityUnits: 5, WriteCapacityUnits: 5 },
-  TableName: tableName
-}
+const rosterSchema = new dynamoose.Schema(
+  {
+    User: {
+      type: String,
+      validate: v => v === new xmpp.JID(v).bare().toString(),
+      hashKey: true
+    },
+    jid: { type: String, rangeKey: true },
+    name: { type: String },
+    to: { type: Boolean },
+    from: { type: Boolean },
+    ask: { type: Number }
+  },
+  { throughput: 5 }
+)
+
+const Roster = dynamoose.model('Roster', rosterSchema)
 
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
@@ -33,29 +39,21 @@ module.exports = function (router) {
           ))
         }
         try {
-          router.storage.query(
-            {
-              TableName: tableName,
-              KeyConditionExpression: '#U = :U',
-              ExpressionAttributeNames: { '#U': 'User' },
-              ExpressionAttributeValues: { ':U': { S: req.to } }
-            },
-            (err, data) => {
-              if (err) next(err)
-              else {
-                query = res.c('query', {
-                  xmlns: 'jabber:iq:roster',
-                  ver: new Date().toISOString() // FIXME!
-                })
+          Roster.query({ User: { eq: req.to } }, (err, items) => {
+            if (err) next(err)
+            else {
+              query = res.c('query', {
+                xmlns: 'jabber:iq:roster',
+                ver: new Date().toISOString() // FIXME!
+              })
 
-                for (item of data.Items) {
-                  query.c('item', { jid: item.jid.S, name: item.name.S })
-                }
-
-                res.send()
+              for (item of items) {
+                query.c('item', { jid: item.jid, name: item.name })
               }
+
+              res.send()
             }
-          )
+          })
         } catch (e) {
           next(e)
         }
@@ -63,15 +61,16 @@ module.exports = function (router) {
       if (req.attrs.type === 'set') {
         try {
           let updates = items.map(item => {
-            return router.storage
-              .updateItem({
-                TableName: tableName,
-                Key: { User: { S: req.to }, jid: { S: item.attrs.jid } },
-                UpdateExpression: 'SET #name = :name',
-                ExpressionAttributeNames: { '#name': 'name' },
-                ExpressionAttributeValues: { ':name': { S: item.attrs.name } }
-              })
-              .promise()
+            return new Promise((resolve, reject) => {
+              Roster.update(
+                { User: req.to, jid: item.attrs.jid },
+                { name: item.attrs.name },
+                err => {
+                  if (err) reject(err)
+                  else resolve()
+                }
+              )
+            })
           })
           Promise.all(updates).catch(next).then(() => res.send())
           // FIXME implement push
@@ -84,8 +83,3 @@ module.exports = function (router) {
     }
   }
 }
-
-module.exports.createTable = function (dynamo, cb) {
-  dynamo.createTable(rosterTable, cb)
-}
-module.exports.tableName = tableName

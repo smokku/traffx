@@ -1,6 +1,7 @@
 const debug = require('debug')('medium:router')
 const redis = require('redis')
 const Redlock = require('redlock')
+const dynamoose = require('dynamoose')
 const xmpp = require('node-xmpp-core')
 const EventEmitter = require('events')
 const junction = require('junction')
@@ -14,7 +15,13 @@ function Router (opts = {}) {
   this.opts = opts
 
   this.router = opts.router
-  this.storage = opts.storage
+
+  this.region = opts.region
+  if (process.env.NODE_ENV === 'development') {
+    if (!this.region) this.region = 'local'
+    dynamoose.local(opts.dynamo || 'http://localhost:' + 4567)
+  }
+  dynamoose.AWS.config.update({ region: this.region })
 
   this.dumpExceptions = opts.dumpExceptions != null
     ? opts.dumpExceptions
