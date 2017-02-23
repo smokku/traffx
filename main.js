@@ -2,6 +2,13 @@
 const debug = require('debug')('medium:main')
 const xmpp = require('node-xmpp-server')
 
+if (process.env.NODE_ENV === 'development') {
+  var dynalite = require('dynalite')({path: './serverdb', createTableMs: 50})
+  dynalite.listen(4567, err => {
+    if (err) console.error(err)
+  })
+}
+
 const s2s = new xmpp.Router()
 const Router = require('./modules/router')
 const router = new Router({ router: s2s })
