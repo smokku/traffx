@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "env DEBUG='*' node main.js",
+    "pretest": "eslint .",
     "test": "ava --timeout=5s",
     "console": "xmpp-console"
   },
@@ -31,7 +32,48 @@
   "devDependencies": {
     "ava": "^0.18.1",
     "dynalite": "^1.1.1",
+    "eslint": "^3.16.1",
+    "eslint-plugin-ava": "^4.2.0",
+    "eslint-plugin-import": "^2.2.0",
+    "eslint-plugin-unicorn": "^2.0.1",
     "node-xmpp-client": "^3.1.2",
-    "standard": "^8.6.0"
+    "standard": "*"
+  },
+  "eslintConfig": {
+    "env": {
+      "es6": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 2016,
+      "sourceType": "module"
+    },
+    "plugins": [
+      "ava",
+      "import",
+      "unicorn",
+      "standard"
+    ],
+    "extends": [
+      "eslint:recommended",
+      "standard",
+      "plugin:ava/recommended",
+      "plugin:import/recommended",
+      "plugin:unicorn/recommended"
+    ],
+    "rules": {
+      "object-shorthand": [
+        "error",
+        "always"
+      ],
+      "prefer-arrow-callback": "error",
+      "prefer-const": [
+        "error",
+        {
+          "destructuring": "all"
+        }
+      ],
+      "prefer-numeric-literals": 2,
+      "block-scoped-var": "error"
+    }
   }
 }
