@@ -116,7 +116,7 @@ Router.prototype.registerRoute = function (jid, client) {
   }
   listener.client = client
   this._channelEmitter.addListener(channel, listener)
-  this.redsub.subscribe(channel, function (err, reply) {
+  this.redsub.subscribe(channel, (err, reply) => {
     if (err) throw err
     // TODO Analyze this
     debug('registered route %s -> %s', jid, client.id)
@@ -136,7 +136,7 @@ Router.prototype.unregisterRoute = function (jid, client) {
     return
   }
   this._channelEmitter.removeListener(channel, listener)
-  this.redsub.unsubscribe(channel, function (err, reply) {
+  this.redsub.unsubscribe(channel, (err, reply) => {
     if (err) throw err
     // TODO Analyze this
     debug('unregistered route %s -> %s', jid, client.id)
@@ -164,20 +164,20 @@ Router.prototype.onMessage = function (channel, message) {
   if (channel.startsWith('__')) {
     // keyspace notification
     if (channel === this.queueChannel) {
-      let name = message.substr(`${this.prefix || ''}queue:`.length)
-      let jid = new xmpp.JID(name)
-      let queue = `queue:${name}`
-      let lock = `lock:${name}`
+      const name = message.substr(`${this.prefix || ''}queue:`.length)
+      const jid = new xmpp.JID(name)
+      const queue = `queue:${name}`
+      const lock = `lock:${name}`
       if (!jid) {
         throw new Error(`Cannot handle ${queue}`)
       }
-      let processQueue = lock => {
+      const processQueue = lock => {
         this.redis.rpop(queue, (err, stanza) => {
           if (err) {
             this.log.error({ err }, 'queue %s', queue)
           }
           if (!err && stanza) {
-            let local = stanza[0] === markerLocal
+            const local = stanza[0] === markerLocal
             stanza = stanza.slice(1)
             this.dispatch(local, jid, stanza)
             // extend lock and process next queue stanza
@@ -220,15 +220,15 @@ Router.prototype.iqResponse = function (from, stanza) {
  */
 Router.prototype.dispatch = function (local, jid, packet) {
   debug('dispatch %s', jid, packet)
-  let stanza = xmpp.parse(packet)
+  const stanza = xmpp.parse(packet)
   if (!stanza) {
     throw new Error(`Failed to dispatch: ${packet}`)
   }
 
   if (local) {
-    let router = this
+    const router = this
 
-    let response = this.iqResponse(jid, stanza)
+    const response = this.iqResponse(jid, stanza)
     if (response) {
       response.send = function () {
         router.process(this)
@@ -276,10 +276,10 @@ Router.prototype.process = function (stanza, local) {
   }
   // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-to-c2s
   // s2s packets was already checked for proper to/from
-  let to = stanza.attrs.to
+  const to = stanza.attrs.to
     ? new xmpp.JID(stanza.attrs.to)
     : new xmpp.JID(stanza.attrs.from).bare()
-  let from = new xmpp.JID(stanza.attrs.from)
+  const from = new xmpp.JID(stanza.attrs.from)
   local = local != null ? local : to.domain === from.domain
   if (local && to.local && to.resource) {
     // direct

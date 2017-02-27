@@ -36,6 +36,7 @@ function wrapC2S (server) {
 
 Promise.all([ tcp, ws ]).then(val => {
   [ tcp, ws ] = val
+  // eslint-disable-next-line ava/test-ended
   test.cb('client messaging', t => {
     t.plan(2 * assertions)
     messagingTest(t, tcp, tcpJid, wsJid)
@@ -47,9 +48,10 @@ const assertions = 4
 
 function messagingTest (t, c2s, from, to) {
   var pingId = Math.random().toString().substring(2)
+  var websocket
 
   if (c2s.server.WS) {
-    var websocket = { url: `ws://localhost:${c2s.server.port}/xmpp-websocket` }
+    websocket = { url: `ws://localhost:${c2s.server.port}/xmpp-websocket` }
   }
   const client = new xmpp.Client({
     autostart: false,
@@ -84,12 +86,12 @@ function messagingTest (t, c2s, from, to) {
     )
   })
 
-  client.on('stanza', function (stanza) {
+  client.on('stanza', stanza => {
     if (stanza.is('iq')) {
       switch (stanza.attrs.type) {
         case 'get':
           if (stanza.getChild('ping', 'urn:xmpp:ping')) {
-            let pong = new xmpp.Stanza('iq', {
+            const pong = new xmpp.Stanza('iq', {
               to: stanza.attrs.from,
               id: stanza.attrs.id,
               type: 'result'

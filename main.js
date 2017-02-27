@@ -18,7 +18,7 @@ if (process.env.NODE_ENV === 'development') {
 
 const s2s = new xmpp.Router()
 s2s._server.on('listening', () => {
-  let address = s2s._server.address()
+  const address = s2s._server.address()
   log.info(
     {
       module: 'router',

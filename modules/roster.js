@@ -39,7 +39,7 @@ module.exports = function (router) {
       }
       items = query.getChildren('item')
       if (req.attrs.type === 'get') {
-        if (items.length) {
+        if (items.length > 0) {
           return next(new StanzaError(
             'roster-get cannot contain items',
             'modify',
@@ -57,7 +57,7 @@ module.exports = function (router) {
               })
 
               for (item of items) {
-                let el = query.c('item', { jid: item.jid })
+                const el = query.c('item', { jid: item.jid })
                 if (item.name) el.attrs.name = item.name
               }
               // TODO
@@ -68,8 +68,8 @@ module.exports = function (router) {
               res.send()
             }
           })
-        } catch (e) {
-          next(e)
+        } catch (err) {
+          next(err)
         }
       }
       if (req.attrs.type === 'set') {
@@ -89,11 +89,11 @@ module.exports = function (router) {
           ))
         }
         try {
-          let cb = err => {
+          const cb = err => {
             if (err) next(err)
             else res.send()
           }
-          let key = { User: req.to, jid: item.attrs.jid }
+          const key = { User: req.to, jid: item.attrs.jid }
           if (item.attrs.subscription === 'remove') {
             Roster.delete(key, cb)
           } else {
@@ -103,8 +103,8 @@ module.exports = function (router) {
           // 2.1.2.6.  Group Element
           // FIXME 2.1.6.  Roster Push
           // If a connected resource or available resource requests the roster, it is referred to as an "interested resource". The server MUST send roster pushes to all interested resources.
-        } catch (e) {
-          next(e)
+        } catch (err) {
+          next(err)
         }
       }
     } else {

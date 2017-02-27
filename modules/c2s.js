@@ -7,7 +7,7 @@ function C2S (opts = {}) {
   this.log = opts.log.child({ module: 'c2s' })
 
   this.server.on('listening', () => {
-    let address = this.server.server.address()
+    const address = this.server.server.address()
     this.log.info(
       {
         address: address.address,

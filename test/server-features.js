@@ -36,10 +36,10 @@ test.cb.afterEach(t => {
 
 c2s.server.on('online', () => {
   test.cb('urn:xmpp:ping', t => {
-    let client = t.context.client
+    const client = t.context.client
     client.on('error', t.end)
-    let id = uniq()
-    let iq = new xmpp.IQ({
+    const id = uniq()
+    const iq = new xmpp.IQ({
       id,
       type: 'get',
       to: t.context.session.jid.domain
@@ -55,10 +55,10 @@ c2s.server.on('online', () => {
   })
 
   test.cb('jabber:iq:version', t => {
-    let client = t.context.client
+    const client = t.context.client
     client.on('error', t.end)
-    let id = uniq()
-    let iq = new xmpp.IQ({
+    const id = uniq()
+    const iq = new xmpp.IQ({
       id,
       type: 'get',
       to: t.context.session.jid.domain
@@ -69,12 +69,12 @@ c2s.server.on('online', () => {
       t.is(id, stanza.attrs.id)
       t.is(t.context.session.jid.domain, stanza.attrs.from)
       t.is('result', stanza.attrs.type)
-      let query = stanza.getChild('query', 'jabber:iq:version')
+      const query = stanza.getChild('query', 'jabber:iq:version')
       t.truthy(query)
       t.is(query.children.length, 3)
-      let n = query.children.find(it => it.name === 'name')
-      let v = query.children.find(it => it.name === 'version')
-      let o = query.children.find(it => it.name === 'os')
+      const n = query.children.find(it => it.name === 'name')
+      const v = query.children.find(it => it.name === 'version')
+      const o = query.children.find(it => it.name === 'os')
       t.truthy(n)
       t.truthy(v)
       t.truthy(o)
@@ -86,10 +86,10 @@ c2s.server.on('online', () => {
   })
 
   test.cb('jabber:iq:last', t => {
-    let client = t.context.client
+    const client = t.context.client
     client.on('error', t.end)
-    let id = uniq()
-    let iq = new xmpp.IQ({
+    const id = uniq()
+    const iq = new xmpp.IQ({
       id,
       type: 'get',
       to: t.context.session.jid.domain
@@ -100,7 +100,7 @@ c2s.server.on('online', () => {
       t.is(id, stanza.attrs.id)
       t.is(t.context.session.jid.domain, stanza.attrs.from)
       t.is('result', stanza.attrs.type)
-      let query = stanza.getChild('query', 'jabber:iq:last')
+      const query = stanza.getChild('query', 'jabber:iq:last')
       t.truthy(query)
       t.truthy(query.attrs.seconds)
       t.end()
@@ -108,10 +108,10 @@ c2s.server.on('online', () => {
   })
 
   test.cb('urn:xmpp:time', t => {
-    let client = t.context.client
+    const client = t.context.client
     client.on('error', t.end)
-    let id = uniq()
-    let iq = new xmpp.IQ({
+    const id = uniq()
+    const iq = new xmpp.IQ({
       id,
       type: 'get',
       to: t.context.session.jid.domain
@@ -122,11 +122,11 @@ c2s.server.on('online', () => {
       t.is(id, stanza.attrs.id)
       t.is(t.context.session.jid.domain, stanza.attrs.from)
       t.is('result', stanza.attrs.type)
-      let query = stanza.getChild('time', 'urn:xmpp:time')
+      const query = stanza.getChild('time', 'urn:xmpp:time')
       t.truthy(query)
       t.is(query.children.length, 2)
-      let utc = query.children.find(it => it.name === 'utc')
-      let tzo = query.children.find(it => it.name === 'tzo')
+      const utc = query.children.find(it => it.name === 'utc')
+      const tzo = query.children.find(it => it.name === 'tzo')
       t.truthy(utc)
       t.truthy(tzo)
       t.truthy(utc.children[0])

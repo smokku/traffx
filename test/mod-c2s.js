@@ -18,11 +18,11 @@ const ws = new C2S.WebSocketServer({ port: 10001 + process.pid })
 function clientTest (t, opts) {
   t.plan(6)
 
+  var websocket
+
   const c2s = new ModC2S(opts)
   if (c2s.server.WS) {
-    var websocket = {
-      url: `ws://localhost:${opts.server.port}/xmpp-websocket`
-    }
+    websocket = { url: `ws://localhost:${opts.server.port}/xmpp-websocket` }
     t.plan(6)
   } else {
     t.plan(7)
@@ -76,5 +76,7 @@ function clientTest (t, opts) {
   })
 }
 
-test.cb('client:tcp', clientTest, { server: tcp, router, autostart: false })
-test.cb('client:ws', clientTest, { server: ws, router, autostart: false })
+// eslint-disable-next-line ava/test-ended
+test.cb('client:tcp', clientTest, { server: tcp, router, log, autostart: false })
+// eslint-disable-next-line ava/test-ended
+test.cb('client:ws', clientTest, { server: ws, router, log, autostart: false })
