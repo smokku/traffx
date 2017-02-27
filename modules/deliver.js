@@ -18,11 +18,11 @@ module.exports = function (router) {
             // TODO specific rules are a bit different here, but for now this will do
             router.route(jid, stanza)
             return
-          default:
-            // rest - silently ignore
-            return
         }
+        // rest - silently ignore
+        return
       }
-    } else next()
+    }
+    next()
   }
 }
