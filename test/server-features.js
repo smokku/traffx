@@ -34,7 +34,6 @@ test.cb.afterEach(t => {
 
 c2s.server.on('online', () => {
   test.cb('urn:xmpp:ping', t => {
-    t.plan(3)
     let client = t.context.client
     client.on('error', t.end)
     let id = uniq()
@@ -54,7 +53,6 @@ c2s.server.on('online', () => {
   })
 
   test.cb('jabber:iq:version', t => {
-    t.plan(11)
     let client = t.context.client
     client.on('error', t.end)
     let id = uniq()
@@ -86,7 +84,6 @@ c2s.server.on('online', () => {
   })
 
   test.cb('jabber:iq:last', t => {
-    t.plan(5)
     let client = t.context.client
     client.on('error', t.end)
     let id = uniq()
@@ -109,7 +106,6 @@ c2s.server.on('online', () => {
   })
 
   test.cb('urn:xmpp:time', t => {
-    t.plan(9)
     let client = t.context.client
     client.on('error', t.end)
     let id = uniq()

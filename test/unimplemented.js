@@ -28,7 +28,6 @@ test.cb.before(t => {
 })
 
 async function serviceUnavailable (t, stanza) {
-  t.plan(5)
   const id = uniq()
   stanza.id = id
   const res = await router.iq(stanza)

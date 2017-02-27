@@ -42,8 +42,6 @@ function iq (type, seq = 1) {
 }
 
 test('roster get empty', async t => {
-  t.plan(8)
-
   const get = iq('get')
   const res1 = await router.iq(get)
   t.is(res1.attrs.type, 'result')
@@ -62,8 +60,6 @@ test('roster get empty', async t => {
 })
 
 test('roster set invalid', async t => {
-  t.plan(15)
-
   const get1 = iq('get')
   get1.root().attrs.from = 'some@otherhost/hacker'
   const res1 = await router.iq(get1)
@@ -105,8 +101,6 @@ test('roster set invalid', async t => {
 })
 
 test('roster set/get/update/delete', async t => {
-  t.plan(41)
-
   const set1 = iq('set').c('item', { jid: 'one@example.com', name: 'One' })
   const res1 = await router.iq(set1)
   t.is(res1.attrs.type, 'result')
