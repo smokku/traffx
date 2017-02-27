@@ -5,8 +5,10 @@ import { C2S } from 'node-xmpp-server'
 import ModC2S from '../modules/c2s'
 import Router from '../modules/router'
 import path from 'path'
+import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
+const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
 const router = new Router({
   db: 1,
   prefix: testName,
@@ -15,7 +17,8 @@ const router = new Router({
       // wrap all outgoing packets back
       router.process(stanza, true)
     }
-  }
+  },
+  log
 })
 const tcpJid = 'tcp@localhost/res'
 const wsJid = 'ws@otherhost/foo'
@@ -24,7 +27,7 @@ let ws = wrapC2S(new C2S.WebSocketServer({ port: 10001 + process.pid }))
 
 function wrapC2S (server) {
   return new Promise((resolve, reject) => {
-    const c2s = new ModC2S({ server, router })
+    const c2s = new ModC2S({ server, router, log })
     c2s.server.on('online', () => {
       resolve(c2s)
     })

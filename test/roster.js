@@ -3,8 +3,10 @@ import test from 'ava'
 import xmpp from 'node-xmpp-client'
 import Router from '../modules/router'
 import path from 'path'
+import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
+const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
 const dynalite = require('dynalite')()
 const dynaPort = 10000 + process.pid
 var router
@@ -16,7 +18,8 @@ test.cb.before(t => {
       db: 1,
       prefix: testName,
       dynamo: 'http://localhost:' + dynaPort,
-      dumpExceptions: false
+      dumpExceptions: false,
+      log
     })
     router.iq = function (stanza) {
       stanza = stanza.root()

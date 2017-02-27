@@ -4,7 +4,7 @@
   "description": "XMPP daemon",
   "main": "main.js",
   "scripts": {
-    "start": "env DEBUG='*' node main.js",
+    "start": "env DEBUG='*' node main.js | bunyan -o short",
     "pretest": "eslint .",
     "test": "ava --timeout=5s",
     "console": "xmpp-console"
@@ -17,6 +17,7 @@
   "dependencies": {
     "@xmpp/console": "^0.0.1",
     "aws-sdk": "^2.16.0",
+    "bunyan": "^1.8.5",
     "debug": "^2.6.0",
     "dynamoose": "^0.7.0",
     "junction": "^0.2.0",

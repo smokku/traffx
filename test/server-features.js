@@ -6,13 +6,15 @@ import ModC2S from '../modules/c2s'
 import Router from '../modules/router'
 import path from 'path'
 import os from 'os'
+import bunyan from 'bunyan'
 
 const pjson = require('../package.json')
 const port = 10000 + process.pid
 const testName = path.basename(__filename, '.js')
-const router = new Router({ db: 1, prefix: testName })
+const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
+const router = new Router({ db: 1, prefix: testName, log })
 const tcp = new C2S.TCPServer({ port })
-const c2s = new ModC2S({ server: tcp, router })
+const c2s = new ModC2S({ server: tcp, router, log })
 const uniq = function () { return Math.random().toString(36).substring(7) }
 
 test.cb.beforeEach(t => {

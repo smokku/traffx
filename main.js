@@ -1,17 +1,36 @@
 'use strict'
 const debug = require('debug')('medium:main')
 const xmpp = require('node-xmpp-server')
+const bunyan = require('bunyan')
+
+const pjson = require('./package.json')
+const log = bunyan.createLogger({
+  name: pjson.name,
+  serializers: { err: bunyan.stdSerializers.err }
+})
 
 if (process.env.NODE_ENV === 'development') {
-  var dynalite = require('dynalite')({path: './serverdb', createTableMs: 50})
+  var dynalite = require('dynalite')({ path: './serverdb', createTableMs: 50 })
   dynalite.listen(4567, err => {
-    if (err) console.error(err)
+    if (err) log.error(err)
   })
 }
 
 const s2s = new xmpp.Router()
+s2s._server.on('listening', () => {
+  let address = s2s._server.address()
+  log.info(
+    {
+      module: 'router',
+      address: address.address,
+      port: address.port,
+      server: s2s.constructor.name
+    },
+    'LISTENING'
+  )
+})
 const Router = require('./modules/router')
-const router = new Router({ router: s2s })
+const router = new Router({ log, router: s2s })
 // FIXME https://github.com/node-xmpp/node-xmpp/issues/366
 const DomainContext = require('node-xmpp-server/lib/S2S/domaincontext')
 DomainContext.prototype.receive = function (stanza) {
@@ -26,12 +45,8 @@ DomainContext.prototype.receive = function (stanza) {
 }
 
 const C2S = require('./modules/c2s')
-const tcp = new C2S({ server: new xmpp.C2S.TCPServer(), router })
-const ws = new C2S({ server: new xmpp.C2S.WebSocketServer(), router })
-
-s2s._server.on('listening', () => {
-  debug('ONLINE', s2s.constructor.name)
-})
+const tcp = new C2S({ server: new xmpp.C2S.TCPServer(), log, router })
+const ws = new C2S({ server: new xmpp.C2S.WebSocketServer(), log, router })
 
 tcp.server.on('online', () => {
   debug('ONLINE', tcp.server.constructor.name)

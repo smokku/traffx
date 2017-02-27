@@ -3,8 +3,10 @@ import test from 'ava'
 import { stanza, JID } from 'node-xmpp-core'
 import Router from '../modules/router'
 import path from 'path'
+import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
+const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
 var router
 
 const uniq = function () {
@@ -12,7 +14,7 @@ const uniq = function () {
 }
 
 test.cb.before(t => {
-  router = new Router({ db: 1, prefix: testName, dumpExceptions: false })
+  router = new Router({ db: 1, prefix: testName, dumpExceptions: false, log })
   router.iq = function (stanza) {
     stanza = stanza.root()
     let from = stanza.to || new JID(stanza.from).bare().toString()

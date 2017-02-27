@@ -16,6 +16,8 @@ function Router (opts = {}) {
 
   this.router = opts.router
 
+  this.log = opts.log.child({ module: 'router' })
+
   this.region = opts.region
   if (process.env.NODE_ENV === 'development') {
     if (!this.region) this.region = 'local'
@@ -34,8 +36,8 @@ function Router (opts = {}) {
   this.redsub = opts.redsub || this.redis.duplicate()
   this.redlock = new Redlock([ this.redis ])
 
-  this.redis.on('error', console.error)
-  this.redlock.on('clientError', console.error)
+  this.redis.on('error', err => this.log.error(err))
+  this.redlock.on('clientError', err => this.log.error(err))
 
   // route messaging
   this._channelEmitter = new EventEmitter()
@@ -81,8 +83,7 @@ function Router (opts = {}) {
   if (process.env.DEBUG) {
     user.use(junction.dump({ prefix: 'USER: ' }))
   }
-  user
-    .use(junction.presenceParser())
+  user.use(junction.presenceParser())
   user
     .use(require('./roster')(this))
     .use(require('junction-lastactivity')())
@@ -116,7 +117,8 @@ Router.prototype.registerRoute = function (jid, client) {
   listener.client = client
   this._channelEmitter.addListener(channel, listener)
   this.redsub.subscribe(channel, function (err, reply) {
-    if (err) throw err // TODO Analyze this
+    if (err) throw err
+    // TODO Analyze this
     debug('registered route %s -> %s', jid, client.id)
   })
 }
@@ -135,7 +137,8 @@ Router.prototype.unregisterRoute = function (jid, client) {
   }
   this._channelEmitter.removeListener(channel, listener)
   this.redsub.unsubscribe(channel, function (err, reply) {
-    if (err) throw err // TODO Analyze this
+    if (err) throw err
+    // TODO Analyze this
     debug('unregistered route %s -> %s', jid, client.id)
   })
 }
@@ -151,14 +154,15 @@ Router.prototype.queue = function (local, jid, stanza) {
     'queue:' + jid,
     (local ? markerLocal : markerRemote) + stanza.toString(),
     function (err, res) {
-      if (err) console.error('queue %s', jid, err)
+      if (err) this.log.error({ err }, 'queue %s', jid)
     }
   )
 }
 
 Router.prototype.onMessage = function (channel, message) {
   debug('message', channel, message)
-  if (channel.startsWith('__')) { // keyspace notification
+  if (channel.startsWith('__')) {
+    // keyspace notification
     if (channel === this.queueChannel) {
       let name = message.substr(`${this.prefix || ''}queue:`.length)
       let jid = new xmpp.JID(name)
@@ -170,7 +174,7 @@ Router.prototype.onMessage = function (channel, message) {
       let processQueue = lock => {
         this.redis.rpop(queue, (err, stanza) => {
           if (err) {
-            console.error('queue %s', queue, err)
+            this.log.error({ err }, 'queue %s', queue)
           }
           if (!err && stanza) {
             let local = stanza[0] === markerLocal
@@ -183,7 +187,7 @@ Router.prototype.onMessage = function (channel, message) {
           } else {
             lock.unlock().catch(err => {
               // we weren't able to reach redis; your lock will eventually expire
-              console.error('queue %s', queue, err)
+              this.log.error({ err }, 'queue %s', queue)
             })
           }
         })
@@ -241,10 +245,14 @@ Router.prototype.dispatch = function (local, jid, packet) {
       if (jid.resource) {
         throw new Error('No FullJID dispatcher') // yet?
       } else {
-        this.user.handle(stanza, response, err => { if (err) console.error(err) })
+        this.user.handle(stanza, response, err => {
+          if (err) this.log.error(err)
+        })
       }
     } else {
-      this.server.handle(stanza, response, err => { if (err) console.error(err) })
+      this.server.handle(stanza, response, err => {
+        if (err) this.log.error(err)
+      })
     }
   } else {
     if (jid.local || jid.resource) {
