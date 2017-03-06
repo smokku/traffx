@@ -52,7 +52,7 @@ function Router (opts = {}) {
   // process packet to server
   var server = this.server = junction()
   if (process.env.DEBUG) {
-    server.use(junction.dump({ prefix: 'SERVER: ' }))
+    server.use(require('./logger')({ prefix: 'SERVER: ', logger: debug }))
   }
   server
     .use(require('junction-lastactivity')())
@@ -81,7 +81,7 @@ function Router (opts = {}) {
   // process packet to client
   var user = this.user = junction()
   if (process.env.DEBUG) {
-    user.use(junction.dump({ prefix: 'USER: ' }))
+    user.use(require('./logger')({ prefix: 'USER: ', logger: debug }))
   }
   user.use(junction.presenceParser())
   user
