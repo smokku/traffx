@@ -1,24 +1,6 @@
 const { StanzaError } = require('junction')
-const dynamoose = require('dynamoose')
-const xmpp = require('node-xmpp-core')
-
-const rosterSchema = new dynamoose.Schema(
-  {
-    User: {
-      type: String,
-      validate: v => v === new xmpp.JID(v).bare().toString(),
-      hashKey: true
-    },
-    jid: { type: String, rangeKey: true },
-    name: { type: String },
-    to: { type: Boolean },
-    from: { type: Boolean },
-    ask: { type: Number }
-  },
-  { throughput: 5 }
-)
-
-const Roster = dynamoose.model('Roster', rosterSchema)
+const { JID } = require('node-xmpp-core')
+const Roster = require('../models/roster')
 
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
@@ -29,7 +11,7 @@ module.exports = function (router) {
     var query, items, item
     if (req.is('iq') && (query = req.getChild('query', 'jabber:iq:roster'))) {
       // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
-      if (req.to !== xmpp.JID(req.attrs.from).bare().toString()) {
+      if (req.to !== new JID(req.attrs.from).bare().toString()) {
         return next(new StanzaError(
           'not allowed to access roster',
           'auth',

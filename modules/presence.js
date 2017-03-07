@@ -1,5 +1,6 @@
-const xmpp = require('node-xmpp-core')
 const { StanzaError } = require('junction')
+const { JID } = require('node-xmpp-core')
+const Roster = require('../models/roster')
 
 function shouldHandle (stanza) {
   return stanza.is('presence') &&
@@ -11,7 +12,7 @@ function shouldHandle (stanza) {
 function checkTo (stanza) {
   var to
   try {
-    to = new xmpp.JID(stanza.attrs.to)
+    to = new JID(stanza.attrs.to)
   } catch (err) {
     return new StanzaError(err.message, 'modify', 'jid-malformed')
   }
@@ -48,7 +49,7 @@ module.exports.outbound = function (c2s) {
   return function presence (stanza, next) {
     if (shouldHandle(stanza)) {
       // https://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
-      var from = new xmpp.JID(stanza.attrs.from)
+      var from = new JID(stanza.attrs.from)
       stanza.attr('from', from.bare().toString())
 
       if (stanza.attrs.type === 'subscribe') {
