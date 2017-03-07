@@ -5,10 +5,9 @@ import { C2S } from 'node-xmpp-server'
 import ModC2S from '../modules/c2s'
 import Router from '../modules/router'
 import path from 'path'
-import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
-const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
+const log = require('./_log')(testName)
 const router = new Router({
   db: 1,
   prefix: testName,

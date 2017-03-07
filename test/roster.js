@@ -1,38 +1,22 @@
 'use strict'
 import test from 'ava'
 import xmpp from 'node-xmpp-client'
-import Router from '../modules/router'
 import path from 'path'
-import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
-const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
-const dynalite = require('dynalite')()
-const dynaPort = 10000 + process.pid
 var router
-
-test.cb.before(t => {
-  dynalite.listen(dynaPort, err => {
-    t.ifError(err)
-    router = new Router({
-      db: 1,
-      prefix: testName,
-      dynamo: 'http://localhost:' + dynaPort,
-      dumpExceptions: false,
-      log
+test.before(async t => {
+  router = await require('./_router')(testName)
+  router.iq = function (stanza) {
+    stanza = stanza.root()
+    return new Promise((resolve, reject) => {
       const response = router.makeResponse(stanza.to, stanza)
+      response.send = function () {
+        resolve(this)
+      }
+      this.user.handle(stanza, response, reject)
     })
-    router.iq = function (stanza) {
-      stanza = stanza.root()
-      return new Promise((resolve, reject) => {
-        response.send = function () {
-          resolve(this)
-        }
-        this.user.handle(stanza, response, reject)
-      })
-    }
-    t.end()
-  })
+  }
 })
 
 function iq (type, seq = 1) {
@@ -53,6 +37,7 @@ test('roster get empty', async t => {
   t.truthy(query1)
   const items1 = query1.getChildren('item')
   t.is(items1.length, 0)
+
   get.c('item')
   const res2 = await router.iq(get)
   t.is(res2.attrs.type, 'error')

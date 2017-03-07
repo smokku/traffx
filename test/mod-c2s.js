@@ -7,10 +7,9 @@ import Router from '../modules/router'
 import path from 'path'
 import net from 'net'
 import crypto from 'crypto'
-import bunyan from 'bunyan'
 
 const testName = path.basename(__filename, '.js')
-const log = bunyan.createLogger({ name: testName, level: bunyan.FATAL + 1 })
+const log = require('./_log')(testName)
 const router = new Router({ db: 1, prefix: testName, log })
 const tcp = new C2S.TCPServer({ port: 10000 + process.pid })
 const ws = new C2S.WebSocketServer({ port: 10001 + process.pid })
