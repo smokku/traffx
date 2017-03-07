@@ -1,4 +1,5 @@
 const debug = require('debug')('medium:c2s')
+const junction = require('junction')
 
 function C2S (opts = {}) {
   this.opts = opts
@@ -6,13 +7,29 @@ function C2S (opts = {}) {
   this.router = opts.router
   this.log = opts.log.child({ module: 'c2s' })
 
+  this.dumpExceptions = opts.dumpExceptions != null
+    ? opts.dumpExceptions
+    : true
+
+  var outbound = this.outbound = junction()
+  if (process.env.DEBUG) {
+    outbound.use(require('./logger')({ prefix: 'C2S: ', logger: debug }))
+  }
+  outbound
+    .use((stanza, next) => {
+      this.router.process(stanza)
+    })
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
+
   this.server.on('listening', () => {
     const address = this.server.server.address()
     this.log.info(
       {
         address: address.address,
         port: address.port,
-        sasl: this.server.availableSaslMechanisms.map(mech => mech.id).join(','),
+        sasl: this.server.availableSaslMechanisms
+          .map(mech => mech.id)
+          .join(','),
         server: this.server.constructor.name
       },
       'LISTENING'
@@ -61,7 +78,6 @@ function C2S (opts = {}) {
     })
 
     client.on('stanza', stanza => {
-      debug('%s %s STANZA %s', client.id, client.jid, stanza)
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
       if (
         stanza.is('presence', 'jabber:client') &&
@@ -73,7 +89,15 @@ function C2S (opts = {}) {
       } else {
         stanza.attr('from', client.jid.toString())
       }
-      this.router.process(stanza)
+      const response = this.router.makeResponse(client.jid, stanza)
+      response.send = function () {
+        client.send(this)
+      }
+      this.outbound.handle(stanza, response, err => {
+        if (err) {
+          this.log.error({ client_id: client.id, client_jid: client.jid, err })
+        }
+      })
     })
 
     client.on('disconnect', err => {
