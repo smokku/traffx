@@ -22,7 +22,6 @@ const Roster = dynamoose.model('Roster', rosterSchema)
 
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
- * presence subscription
  * TODO extend disco with jabber:iq:roster
  */
 module.exports = function (router) {

@@ -15,10 +15,12 @@ function C2S (opts = {}) {
   if (process.env.DEBUG) {
     outbound.use(require('./logger')({ prefix: 'C2S: ', logger: debug }))
   }
+  var route = (stanza, next) => {
+    opts.router.process(stanza)
+  }
   outbound
-    .use((stanza, next) => {
-      this.router.process(stanza)
-    })
+    .use(require('./presence').outbound(this))
+    .use(route)
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
   this.server.on('listening', () => {
@@ -79,16 +81,8 @@ function C2S (opts = {}) {
 
     client.on('stanza', stanza => {
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
-      if (
-        stanza.is('presence', 'jabber:client') &&
-          [ 'subscribe', 'subscribed', 'unsubscribe', 'unsubscribed' ].includes(
-            stanza.attrs.type
-          )
-      ) {
-        stanza.attr('from', client.jid.bare().toString())
-      } else {
-        stanza.attr('from', client.jid.toString())
-      }
+      // XMPP-IM case is handled in presence module
+      stanza.attr('from', client.jid.toString())
       const response = this.router.makeResponse(client.jid, stanza)
       response.send = function () {
         client.send(this)

@@ -87,6 +87,7 @@ function Router (opts = {}) {
   user
     .use(require('./roster')(this))
     .use(require('junction-lastactivity')())
+    .use(require('./presence')(this))
     .use(require('./deliver')(this))
   user
     .use(junction.serviceUnavailable())
