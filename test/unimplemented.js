@@ -19,7 +19,7 @@ test.cb.before(t => {
     stanza = stanza.root()
     const from = stanza.to || new JID(stanza.from).bare().toString()
     return new Promise((resolve, reject) => {
-      const response = router.iqResponse(from, stanza)
+      const response = router.makeResponse(from, stanza)
       response.send = function () {
         resolve(this)
       }

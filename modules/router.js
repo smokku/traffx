@@ -202,18 +202,13 @@ Router.prototype.onMessage = function (channel, message) {
 
 /* Build iq-response for iq-get or iq-set stanza
  */
-Router.prototype.iqResponse = function (from, stanza) {
-  if (
-    stanza.is('iq') &&
-      (stanza.attrs.type === 'get' || stanza.attrs.type === 'set')
-  ) {
-    return new xmpp.Stanza('iq', {
-      id: stanza.attrs.id,
-      from: from.toString(),
-      to: stanza.attrs.from,
-      type: 'result'
-    })
-  }
+Router.prototype.makeResponse = function (from, stanza) {
+  return new xmpp.Stanza(stanza.name, {
+    id: stanza.attrs.id,
+    from: from.toString(),
+    to: stanza.attrs.from,
+    type: stanza.is('iq') ? 'result' : null
+  })
 }
 
 /* Dispatch stanza coming from queue to other queues/routes
@@ -228,11 +223,9 @@ Router.prototype.dispatch = function (local, jid, packet) {
   if (local) {
     const router = this
 
-    const response = this.iqResponse(jid, stanza)
-    if (response) {
-      response.send = function () {
-        router.process(this)
-      }
+    const response = this.makeResponse(jid, stanza)
+    response.send = function () {
+      router.process(this)
     }
 
     stanza.to = jid.toString()

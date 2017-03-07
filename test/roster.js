@@ -20,11 +20,11 @@ test.cb.before(t => {
       dynamo: 'http://localhost:' + dynaPort,
       dumpExceptions: false,
       log
+      const response = router.makeResponse(stanza.to, stanza)
     })
     router.iq = function (stanza) {
       stanza = stanza.root()
       return new Promise((resolve, reject) => {
-        const response = router.iqResponse(stanza.to, stanza)
         response.send = function () {
           resolve(this)
         }
