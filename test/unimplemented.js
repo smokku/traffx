@@ -3,10 +3,10 @@ import test from 'ava'
 import { stanza, JID } from 'node-xmpp-core'
 import Router from '../modules/router'
 import path from 'path'
+import { uniq } from '../utils'
 
 const testName = path.basename(__filename, '.js')
 const log = require('./_log')(testName)
-const uniq = function () { return Math.random().toString(36).substring(7) }
 
 var router
 test.cb.before(t => {

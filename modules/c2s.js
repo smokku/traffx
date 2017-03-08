@@ -17,7 +17,7 @@ function C2S (opts = {}) {
     outbound.use(require('./logger')({ prefix: 'C2S: ', logger: debug }))
   }
   var route = (stanza, next) => {
-    opts.router.process(stanza)
+    this.router.process(stanza)
   }
   outbound
     .use(require('./presence').outbound(this))
@@ -88,10 +88,16 @@ function C2S (opts = {}) {
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
       // XMPP-IM case is handled in presence module
       stanza.attr('from', client.jid.toString())
-      const response = this.router.makeResponse(client.jid, stanza)
-      response.send = function () {
-        client.send(this)
+
+      stanza.send = stanza => {
+        this.router.process(stanza)
       }
+
+      const response = this.router.makeResponse(client.jid, stanza)
+      response.send = () => {
+        client.send(response)
+      }
+
       this.outbound.handle(stanza, response, err => {
         if (err) {
           this.log.error({ client_id: client.id, client_jid: client.jid, err })

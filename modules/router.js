@@ -224,14 +224,14 @@ Router.prototype.dispatch = function (local, jid, packet) {
   if (local) {
     const router = this
 
-    const response = this.makeResponse(jid, stanza)
-    response.send = function () {
-      router.process(this)
+    stanza.to = jid.toString()
+    stanza.send = stanza => {
+      router.process(stanza)
     }
 
-    stanza.to = jid.toString()
-    stanza.send = function (stanza) {
-      router.process(stanza)
+    const response = this.makeResponse(jid, stanza)
+    response.send = () => {
+      router.process(response)
     }
 
     if (jid.local) {

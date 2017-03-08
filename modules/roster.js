@@ -1,6 +1,37 @@
 const { StanzaError } = require('junction')
-const { JID } = require('node-xmpp-core')
+const { JID, Stanza } = require('node-xmpp-core')
 const Roster = require('../models/roster')
+const { uniq } = require('../utils')
+
+function rosterItem (query, item) {
+  const el = query.c('item', { jid: item.jid })
+  if (item.name) el.attrs.name = item.name
+  // TODO
+  // 2.1.2.1.  Approved Attribute
+  // 2.1.2.2.  Ask Attribute
+  if (item.ask) el.attrs.ask = 'subscribe'
+  // 2.1.2.5.  Subscription Attribute
+  if (item.from && item.to) {
+    el.attrs.subscription = 'both'
+  } else if (item.from) {
+    el.attrs.subscription = 'from'
+  } else if (item.to) {
+    el.attrs.subscription = 'to'
+  }
+  // 2.1.2.6.  Group Element
+  return el
+}
+
+function rosterPush (to, item) {
+  const query = new Stanza('iq', {
+    to,
+    from: to,
+    type: 'set',
+    id: uniq(12)
+  }).c('query', { xmlns: 'jabber:iq:roster' })
+  rosterItem(query, item)
+  return query.root()
+}
 
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
@@ -37,15 +68,7 @@ module.exports = function (router) {
                 ver: new Date().toISOString()
               })
 
-              for (item of items) {
-                const el = query.c('item', { jid: item.jid })
-                if (item.name) el.attrs.name = item.name
-              }
-              // TODO
-              // 2.1.2.1.  Approved Attribute
-              // 2.1.2.2.  Ask Attribute
-              // 2.1.2.5.  Subscription Attribute
-              // 2.1.2.6.  Group Element
+              for (item of items) rosterItem(query, item)
               res.send()
             }
           })
@@ -93,3 +116,6 @@ module.exports = function (router) {
     }
   }
 }
+
+module.exports.rosterItem = rosterItem
+module.exports.rosterPush = rosterPush
