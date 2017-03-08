@@ -11,7 +11,7 @@ module.exports = function (router) {
     var query, items, item
     if (req.is('iq') && (query = req.getChild('query', 'jabber:iq:roster'))) {
       // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
-      if (req.to !== new JID(req.attrs.from).bare().toString()) {
+      if (req.to !== new JID(req.from).bare().toString()) {
         return next(new StanzaError(
           'not allowed to access roster',
           'auth',
@@ -19,7 +19,7 @@ module.exports = function (router) {
         ))
       }
       items = query.getChildren('item')
-      if (req.attrs.type === 'get') {
+      if (req.type === 'get') {
         if (items.length > 0) {
           return next(new StanzaError(
             'roster-get cannot contain items',
@@ -53,7 +53,7 @@ module.exports = function (router) {
           next(err)
         }
       }
-      if (req.attrs.type === 'set') {
+      if (req.type === 'set') {
         // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
         if (items.length !== 1) {
           return next(new StanzaError(

@@ -5,14 +5,14 @@ const Roster = require('../models/roster')
 function shouldHandle (stanza) {
   return stanza.is('presence') &&
     [ 'subscribe', 'subscribed', 'unsubscribe', 'unsubscribed' ].includes(
-      stanza.attrs.type
+      stanza.type
     )
 }
 
 function checkTo (stanza) {
   var to
   try {
-    to = new JID(stanza.attrs.to)
+    to = new JID(stanza.to)
   } catch (err) {
     return new StanzaError(err.message, 'modify', 'jid-malformed')
   }
@@ -26,7 +26,7 @@ function checkTo (stanza) {
 module.exports = function (router) {
   return function presence (stanza, next) {
     if (shouldHandle(stanza)) {
-      if (stanza.attrs.type === 'subscribe') {
+      if (stanza.type === 'subscribe') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-request-inbound
         const err = checkTo(stanza)
         if (err) return next(err)
@@ -35,7 +35,7 @@ module.exports = function (router) {
         // 2. If the contact exists and the user already has a subscription to the contact's presence
 
         // 3. if there is at least one available resource associated with the contact
-        router.route(stanza.attrs.to, stanza)
+        router.route(stanza.to, stanza)
 
         // TODO
         // 4. Otherwise, if the contact has no available resources when the subscription request
@@ -49,10 +49,10 @@ module.exports.outbound = function (c2s) {
   return function presence (stanza, next) {
     if (shouldHandle(stanza)) {
       // https://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
-      var from = new JID(stanza.attrs.from)
+      var from = new JID(stanza.from)
       stanza.attr('from', from.bare().toString())
 
-      if (stanza.attrs.type === 'subscribe') {
+      if (stanza.type === 'subscribe') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-request-outbound
         const err = checkTo(stanza)
         if (err) return next(err)

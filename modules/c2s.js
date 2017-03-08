@@ -1,4 +1,5 @@
 const debug = require('debug')('medium:c2s')
+const xmpp = require('node-xmpp-core')
 const junction = require('junction')
 
 function C2S (opts = {}) {
@@ -80,6 +81,10 @@ function C2S (opts = {}) {
     })
 
     client.on('stanza', stanza => {
+      if (typeof stanza.type === 'undefined') {
+        // C2S WebSocket connector passes ltx.Element not Stanza - reparse it
+        stanza = xmpp.parse(stanza.toString())
+      }
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
       // XMPP-IM case is handled in presence module
       stanza.attr('from', client.jid.toString())
