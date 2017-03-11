@@ -5,7 +5,6 @@ import { C2S } from 'node-xmpp-server'
 import ModC2S from '../c2s'
 import Router from '../router'
 import path from 'path'
-import os from 'os'
 import { uniq } from '../utils'
 
 const pjson = require('../package.json')
@@ -79,7 +78,7 @@ c2s.server.on('online', () => {
       t.truthy(o)
       t.is(n.children[0], pjson.name)
       t.is(v.children[0], pjson.version)
-      t.is(o.children[0], os.type())
+      t.is(o.children[0], Router.os)
       t.end()
     })
   })
