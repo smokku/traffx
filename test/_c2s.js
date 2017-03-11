@@ -7,7 +7,7 @@ module.exports = function c2s (server, router) {
       server,
       router,
       log: router.log,
-      dumpExceptions: false
+      dumpExceptions: !!process.env.DUMP_EXCEPTIONS
     })
     c2s.server.on('online', () => {
       resolve(c2s)

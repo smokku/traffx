@@ -12,7 +12,7 @@ module.exports = function (name) {
         db: 1,
         prefix: name,
         dynamo: 'http://localhost:' + dynaPort,
-        dumpExceptions: false,
+        dumpExceptions: !!process.env.DUMP_EXCEPTIONS,
         log: require('./_log')(name),
         router: {
           send (stanza) {
