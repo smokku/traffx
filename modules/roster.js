@@ -100,6 +100,7 @@ module.exports = function (router) {
           const key = { User: req.to, jid: item.attrs.jid }
           if (item.attrs.subscription === 'remove') {
             Roster.delete(key, cb)
+            // FIXME should send presence-unsubscribed and presence-offline?
           } else {
             Roster.update(key, { name: item.attrs.name }, cb)
           }

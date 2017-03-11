@@ -17,6 +17,12 @@ test.before(async t => {
   Roster = require('../models/roster')
 })
 
+function checkEnd (t, endings) {
+  return function cond () {
+    if (--endings === 0) t.end()
+  }
+}
+
 test.cb.beforeEach(t => {
   t.context.sendr = new xmpp.Client({
     port,
@@ -77,7 +83,7 @@ test.cb('subscription stamping', t => {
 })
 
 test.cb('subscription already approved', t => {
-  t.plan(13)
+  const end = checkEnd(t, 2)
 
   const sendr = t.context.sendr
   sendr.on('error', t.end)
@@ -106,14 +112,90 @@ test.cb('subscription already approved', t => {
         t.is(item.attrs.ask, 'subscribe')
       } else {
         t.is(item.attrs.subscription, 'to')
-        t.end()
+        end()
       }
     } else if (stanza.is('presence')) {
       t.is(stanza.type, 'subscribed')
       t.is(stanza.from, to)
       t.is(stanza.to, from)
+      end()
     } else {
-      t.fail(stanza.name)
+      t.end(stanza.name)
     }
   })
 })
+
+function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
+  const end = checkEnd(t, 3)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.update({ User: from, jid: to }, fromState, (err, item) => {
+    if (err) return t.end(err)
+    Roster.update({ User: to, jid: from }, toState, (err, item) => {
+      if (err) return t.end(err)
+      sendr.send(
+        stanza`<presence type="unsubscribe" from="${from}" to="${to}"/>`
+      )
+    })
+  })
+  sendr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, to)
+      t.is(item.attrs.subscription, fromWanted)
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+  recvr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, from)
+      t.is(item.attrs.subscription, toWanted)
+      end()
+    } else if (stanza.is('presence')) {
+      t.is(stanza.type, 'unsubscribe')
+      t.is(stanza.from, from)
+      t.is(stanza.to, to)
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+}
+
+// eslint-disable-next-line ava/test-ended
+test.cb(
+  'unsubscribing - one-way',
+  unsubscribing,
+  { to: true },
+  undefined,
+  { from: true },
+  undefined
+)
+// eslint-disable-next-line ava/test-ended
+test.cb(
+  'unsubscribing - mutual',
+  unsubscribing,
+  { from: true, to: true },
+  'from',
+  { from: true, to: true },
+  'to'
+)
