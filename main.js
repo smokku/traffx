@@ -29,7 +29,7 @@ s2s._server.on('listening', () => {
     'LISTENING'
   )
 })
-const Router = require('./modules/router')
+const Router = require('./router')
 const router = new Router({ log, router: s2s })
 // FIXME https://github.com/node-xmpp/node-xmpp/issues/366
 const DomainContext = require('node-xmpp-server/lib/S2S/domaincontext')
@@ -44,7 +44,7 @@ DomainContext.prototype.receive = function (stanza) {
   }
 }
 
-const C2S = require('./modules/c2s')
+const C2S = require('./c2s')
 const tcp = new C2S({ server: new xmpp.C2S.TCPServer(), log, router })
 const ws = new C2S({ server: new xmpp.C2S.WebSocketServer(), log, router })
 

@@ -1,5 +1,5 @@
 'use strict'
-import Router from '../modules/router'
+import Router from '../router'
 
 const dynalite = require('dynalite')()
 const dynaPort = 11000 + process.pid

@@ -5,7 +5,7 @@ const dynamoose = require('dynamoose')
 const xmpp = require('node-xmpp-core')
 const EventEmitter = require('events')
 const junction = require('junction')
-const pjson = require('../package.json')
+const pjson = require('./package.json')
 const os = require('os')
 
 const markerLocal = '!'
@@ -52,13 +52,13 @@ function Router (opts = {}) {
   // process packet to server
   var server = this.server = junction()
   if (process.env.DEBUG) {
-    server.use(require('./logger')({ prefix: 'SERVER: ', logger: debug }))
+    server.use(require('./modules/logger')({ prefix: 'SERVER: ', logger: debug }))
   }
   server
     .use(require('junction-lastactivity')())
     .use(require('junction-ping')())
     .use(
-      require('junction-softwareversion')(pjson.name, pjson.version, os.type())
+      require('junction-softwareversion')(pjson.name, pjson.version, Router.os)
     )
     .use(require('junction-time')())
     .use(
@@ -81,18 +81,20 @@ function Router (opts = {}) {
   // process packet to client
   var user = this.user = junction()
   if (process.env.DEBUG) {
-    user.use(require('./logger')({ prefix: 'USER: ', logger: debug }))
+    user.use(require('./modules/logger')({ prefix: 'USER: ', logger: debug }))
   }
   user.use(junction.presenceParser())
   user
-    .use(require('./roster')(this))
+    .use(require('./modules/roster')(this))
     .use(require('junction-lastactivity')())
-    .use(require('./presence')(this))
-    .use(require('./deliver')(this))
+    .use(require('./modules/presence')(this))
+    .use(require('./modules/deliver')(this))
   user
     .use(junction.serviceUnavailable())
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 }
+
+Router.os = `${process.release.name}/${process.release.lts || process.versions.node.split('.')[0]} (${os.type()} ${os.arch()})`
 
 module.exports = Router
 

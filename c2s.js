@@ -2,6 +2,10 @@ const debug = require('debug')('medium:c2s')
 const xmpp = require('node-xmpp-core')
 const junction = require('junction')
 
+const NS_SESSION = 'urn:ietf:params:xml:ns:xmpp-session'
+const NS_BIND = 'urn:ietf:params:xml:ns:xmpp-bind'
+const NS_STREAMS = 'http://etherx.jabber.org/streams'
+
 function C2S (opts = {}) {
   this.opts = opts
   this.server = opts.server
@@ -12,15 +16,38 @@ function C2S (opts = {}) {
     ? opts.dumpExceptions
     : true
 
+  // https://github.com/node-xmpp/node-xmpp/issues/391
+  var streamFeatures = this.streamFeatures = {}
+  function sendFeatures () {
+    if (this.authenticated) {
+      const features = new xmpp.Element('stream:features', {
+        xmlns: NS_STREAMS,
+        'xmlns:stream': NS_STREAMS
+      })
+      features.c('bind', { xmlns: NS_BIND })
+      features.c('session', { xmlns: NS_SESSION })
+      for (let name of Object.keys(streamFeatures)) {
+        features.c(name, { xmlns: streamFeatures[name] })
+      }
+      this.send(features)
+    } else {
+      this.constructor.prototype.sendFeatures.apply(this)
+    }
+  }
+
   var outbound = this.outbound = junction()
   if (process.env.DEBUG) {
-    outbound.use(require('./logger')({ prefix: 'C2S: ', logger: debug }))
+    outbound.use(
+      require('./modules/logger')({ prefix: 'C2S: ', logger: debug })
+    )
   }
+  var presence = require('./modules/presence')
+  Object.assign(this.streamFeatures, presence.streamFeatures)
   var route = (stanza, next) => {
     this.router.process(stanza)
   }
   outbound
-    .use(require('./presence').outbound(this))
+    .use(presence.outbound(this))
     .use(route)
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
@@ -47,6 +74,7 @@ function C2S (opts = {}) {
     const local = socket.address()
 
     client.id = `${socket.remoteAddress}/${socket.remotePort}`
+    client.sendFeatures = sendFeatures
 
     this.log.info(
       {
@@ -83,6 +111,7 @@ function C2S (opts = {}) {
     client.on('stanza', stanza => {
       if (typeof stanza.type === 'undefined') {
         // C2S WebSocket connector passes ltx.Element not Stanza - reparse it
+        // https://github.com/node-xmpp/node-xmpp/issues/390
         stanza = xmpp.parse(stanza.toString())
       }
       // http://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s

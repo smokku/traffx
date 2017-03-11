@@ -1,5 +1,5 @@
 'use strict'
-import ModC2S from '../modules/c2s'
+import ModC2S from '../c2s'
 
 module.exports = function c2s (server, router) {
   return new Promise((resolve, reject) => {

@@ -1,7 +1,7 @@
 'use strict'
 import test from 'ava'
 import { stanza, JID } from 'node-xmpp-core'
-import Router from '../modules/router'
+import Router from '../router'
 import path from 'path'
 import { uniq } from '../utils'
 
