@@ -40,7 +40,7 @@ function Router (opts = {}) {
   this.redlock.on('clientError', err => this.log.error(err))
 
   // route messaging
-  this._channelEmitter = new EventEmitter()
+  this._channelEmitter = new EventEmitter().setMaxListeners(0)
   this.redsub.on('message', this.onMessage.bind(this))
 
   // queue messaging
