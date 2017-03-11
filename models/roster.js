@@ -12,7 +12,8 @@ const rosterSchema = new dynamoose.Schema(
     name: { type: String },
     to: { type: Boolean },
     from: { type: Boolean },
-    ask: { type: Boolean },
+    ask: { type: String },
+    in: { type: String },
     approved: { type: Boolean }
   },
   { throughput: 5 }

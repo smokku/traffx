@@ -26,7 +26,7 @@ function C2S (opts = {}) {
       })
       features.c('bind', { xmlns: NS_BIND })
       features.c('session', { xmlns: NS_SESSION })
-      for (let name of Object.keys(streamFeatures)) {
+      for (const name of Object.keys(streamFeatures)) {
         features.c(name, { xmlns: streamFeatures[name] })
       }
       this.send(features)

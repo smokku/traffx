@@ -8,6 +8,7 @@ function rosterItem (query, item) {
   if (item.name) el.attrs.name = item.name
   // TODO
   // 2.1.2.1.  Approved Attribute
+  if (item.approved) el.attrs.approved = 'true'
   // 2.1.2.2.  Ask Attribute
   if (item.ask) el.attrs.ask = 'subscribe'
   // 2.1.2.5.  Subscription Attribute
@@ -68,7 +69,16 @@ module.exports = function (router) {
                 ver: new Date().toISOString()
               })
 
-              for (item of items) rosterItem(query, item)
+              for (item of items) {
+                if (item.in) {
+                  // FIXME!!! re-generate presence subscription
+                } else {
+                  if (item.ask) {
+                    // FIXME!!! re-generate presence subscription
+                  }
+                  rosterItem(query, item)
+                }
+              }
               res.send()
             }
           })
