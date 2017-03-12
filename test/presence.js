@@ -2,7 +2,7 @@
 import test from 'ava'
 import { C2S } from 'node-xmpp-server'
 import xmpp from 'node-xmpp-client'
-import { stanza } from 'node-xmpp-core'
+import { stanza as S } from 'node-xmpp-core'
 import path from 'path'
 import { uniq } from '../utils'
 
@@ -51,7 +51,7 @@ test.cb.afterEach(t => {
 test.cb('invalid outbound "to"', t => {
   const client = t.context.sendr
   client.on('error', t.end)
-  client.send(stanza`<presence type="subscribe" to=""/>`)
+  client.send(S`<presence type="subscribe" to=""/>`)
   client.on('stanza', stanza => {
     t.true(stanza.is('presence'))
     t.is(stanza.type, 'error')
@@ -65,14 +65,14 @@ test.cb('invalid outbound "to"', t => {
   })
 })
 
-test.cb('subscription stamping', t => {
+test.cb('subscription stamping - empty from', t => {
   const sendr = t.context.sendr
   sendr.on('error', t.end)
   const recvr = t.context.recvr
   recvr.on('error', t.end)
   const id = uniq()
   sendr.send(
-    stanza`<presence type="subscribe" id="${id}" from="${sendr.session.jid.toString()}" to="${recvr.session.jid.toString()}"/>`
+    S`<presence type="subscribe" id="${id}" to="${recvr.session.jid.toString()}"/>`
   )
   recvr.on('stanza', stanza => {
     t.true(stanza.is('presence'))
@@ -84,16 +84,112 @@ test.cb('subscription stamping', t => {
   })
 })
 
-test.failing.cb('Requesting a Subscription - unknown contact', t => {
-  t.end('fail')
+test.cb('subscription stamping - full from', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+  const id = uniq()
+  sendr.send(
+    S`<presence type="subscribe" id="${id}" from="${sendr.session.jid.toString()}" to="${recvr.session.jid.toString()}"/>`
+  )
+  recvr.on('stanza', stanza => {
+    t.true(stanza.is('presence'))
+    t.is(stanza.type, 'subscribe')
+    t.is(stanza.id, id)
+    t.is(stanza.from, sendr.session.jid.bare().toString())
+    t.is(stanza.to, recvr.session.jid.bare().toString())
+    t.end()
+  })
 })
 
-test.failing.cb('Requesting a Subscription - already existing contact', t => {
-  t.end('fail')
+function requestApprove (t, start) {
+  const end = checkEnd(t, 5)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const opts = {
+    from: sendr.session.jid.bare().toString(),
+    to: recvr.session.jid.bare().toString(),
+    id1: uniq(3),
+    id2: uniq(3),
+    name: uniq(5)
+  }
+  start(t, opts, err => {
+    if (err) t.end(err)
+    else sendr.send(S`<presence type="subscribe" id="${opts.id1}" to="${opts.to}"/>`)
+  })
+  sendr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, opts.to)
+      if (item.attrs.ask) {
+        t.is(item.attrs.ask, 'subscribe')
+        end()
+      } else {
+        t.is(item.attrs.subscription, 'to')
+        end()
+      }
+    } else if (stanza.is('presence')) {
+      t.is(stanza.type, 'subscribed')
+      t.is(stanza.id, opts.id2)
+      t.is(stanza.from, opts.to)
+      t.is(stanza.to, opts.from)
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+  recvr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, opts.from)
+      t.is(item.attrs.name, opts.name)
+      t.is(item.attrs.subscription, 'from')
+      end()
+    } else if (stanza.is('presence')) {
+      t.is(stanza.type, 'subscribe')
+      t.is(stanza.id, opts.id1)
+      t.is(stanza.from, opts.from)
+      t.is(stanza.to, opts.to)
+      recvr.send(S`<presence type="subscribed" id="${opts.id2}" to="${stanza.from}"/>`)
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+}
+
+// eslint-disable-next-line ava/test-ended
+test.cb('Requesting a Subscription - unknown contact', t => {
+  requestApprove(t, (t, opts, cb) => {
+    opts.name = undefined
+    cb()
+  })
+})
+
+// eslint-disable-next-line ava/test-ended
+test.cb('Requesting a Subscription - already existing contact', t => {
+  requestApprove(t, (t, opts, cb) => {
+    Roster.update({ User: opts.to, jid: opts.from }, { from: false, to: false, name: opts.name }, cb)
+  })
 })
 
 test.cb('Requesting a Subscription - already approved contact', t => {
-  const end = checkEnd(t, 2)
+  const end = checkEnd(t, 3)
 
   const sendr = t.context.sendr
   sendr.on('error', t.end)
@@ -106,7 +202,7 @@ test.cb('Requesting a Subscription - already approved contact', t => {
   const to = recvr.session.jid.bare().toString()
   Roster.update({ User: to, jid: from }, { from: true }, err => {
     if (err) return t.end(err)
-    sendr.send(stanza`<presence type="subscribe" from="${from}" to="${to}"/>`)
+    sendr.send(S`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -120,6 +216,7 @@ test.cb('Requesting a Subscription - already approved contact', t => {
       t.is(item.attrs.jid, to)
       if (item.attrs.ask) {
         t.is(item.attrs.ask, 'subscribe')
+        end()
       } else {
         t.is(item.attrs.subscription, 'to')
         end()
@@ -147,7 +244,7 @@ test.cb('Requesting a Subscription - pre-approved contact', t => {
   const to = recvr.session.jid.bare().toString()
   Roster.update({ User: to, jid: from }, { approved: true }, err => {
     if (err) return t.end(err)
-    sendr.send(stanza`<presence type="subscribe" from="${from}" to="${to}"/>`)
+    sendr.send(S`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -205,7 +302,7 @@ test.cb('Pre-Approving a Subscription Request', t => {
 
   const to = recvr.session.jid.bare().toString()
   sendr.send(
-    stanza`<presence type="subscribed" from="${sendr.session.jid.toString()}" to="${to}"/>`
+    S`<presence type="subscribed" from="${sendr.session.jid.toString()}" to="${to}"/>`
   )
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -241,7 +338,7 @@ function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
     Roster.update({ User: to, jid: from }, toState, (err, item) => {
       if (err) return t.end(err)
       sendr.send(
-        stanza`<presence type="unsubscribe" id="${id}" from="${from}" to="${to}"/>`
+        S`<presence type="unsubscribe" id="${id}" from="${from}" to="${to}"/>`
       )
     })
   })
