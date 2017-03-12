@@ -1,4 +1,4 @@
-const debug = require('debug')('medium:router')
+const debug = require('debug')('traffic:router')
 const redis = require('redis')
 const Redlock = require('redlock')
 const dynamoose = require('dynamoose')

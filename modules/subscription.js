@@ -25,7 +25,7 @@ function checkTo (stanza) {
  * https://xmpp.org/rfcs/rfc6121.html#sub
  */
 module.exports = function (router) {
-  const debug = require('debug')('medium:mod:subscription:inbound')
+  const debug = require('debug')('traffic:mod:subscription:inbound')
   return function subscription (stanza, res, next) {
     if (shouldHandle(stanza)) {
       const err = checkTo(stanza)
@@ -165,7 +165,7 @@ module.exports = function (router) {
 /* C2S generated OUTBOUND packet
  */
 module.exports.outbound = function (c2s) {
-  const debug = require('debug')('medium:mod:subscription:outbound')
+  const debug = require('debug')('traffic:mod:subscription:outbound')
   return function subscription (stanza, next) {
     if (shouldHandle(stanza)) {
       // https://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s

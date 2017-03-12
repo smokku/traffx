@@ -1,5 +1,5 @@
 'use strict'
-const debug = require('debug')('medium:main')
+const debug = require('debug')('traffic:main')
 const xmpp = require('node-xmpp-server')
 const bunyan = require('bunyan')
 

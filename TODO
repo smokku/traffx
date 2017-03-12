@@ -1,9 +1,24 @@
 - expire queue: items
   - catch expiry through keyspace notification and process ass usuall
-- rename to 'traffic'
-- isLocal simplify:
-  - treat all incoming s2s domains as local
-  - incoming c2s:
-    - local if from domain same as to
-  - route non-local via s2s
+- https://xmpp.org/extensions/xep-0156.html Discovering Alternative XMPP Connection Methods
+- https://xmpp.org/extensions/xep-0128.html Service Discovery Extensions
+- https://xmpp.org/extensions/xep-0237.html Roster Versioning
+- https://xmpp.org/extensions/xep-0154.html User Profile
+? https://xmpp.org/extensions/xep-0136.html Message Archiving
+? https://xmpp.org/extensions/xep-0013.html Flexible Offline Message Retrieval
+- https://xmpp.org/extensions/xep-0313.html Message Archive Management
+- https://xmpp.org/extensions/xep-0334.html Message Processing Hints
+- https://xmpp.org/extensions/xep-0280.html Message Carbons
+- https://xmpp.org/extensions/xep-0386.html Bind 2.0
+- https://xmpp.org/extensions/xep-0369.html Mediated Information eXchange (MIX)
+- https://xmpp.org/registrar/disco-features.html ipv6, roster, urn:ietf:params:xml:ns:xmpp-bind (RFC 3920)
+- https://xmpp.org/extensions/xep-0083.html Nested Roster Groups
+
+- pass XHTML-IM through tidy http://www.html-tidy.org
+- spectrum2: 2017-03-05 12:19:04,358 INFO  XMPPRosterManager: elthur@gmail.com: This server does not support remote roster protoXEP
+- smtp:smoku@chrome.pl - automagiczne routowanie to/from adresów poprzedzonych smtp:
+
+- https://www.graylog.org
+- some Business Intelligence dashboard
+
 

@@ -1,4 +1,4 @@
-const debug = require('debug')('medium:c2s')
+const debug = require('debug')('traffic:c2s')
 const xmpp = require('node-xmpp-core')
 const junction = require('junction')
 
