@@ -34,7 +34,7 @@ function Router (opts = {}) {
   this.redis = opts.redis ||
     redis.createClient({ db: this.db, prefix: this.prefix })
   this.redsub = opts.redsub || this.redis.duplicate()
-  this.redlock = new Redlock([ this.redis ])
+  this.redlock = new Redlock([ this.redis ], { retryCount: 0 })
 
   this.redis.on('error', err => this.log.error(err))
   this.redlock.on('clientError', err => this.log.error(err))
@@ -166,11 +166,12 @@ Router.prototype.onMessage = function (channel, message) {
   debug('message', channel, message)
   if (channel.startsWith('__')) {
     // keyspace notification
-    if (channel === this.queueChannel) {
-      const name = message.substr(`${this.prefix || ''}queue:`.length)
+    const prefix = this.prefix || ''
+    if (channel === this.queueChannel && message.startsWith(prefix)) {
+      const name = message.substr(`${prefix}queue:`.length)
       const jid = new xmpp.JID(name)
       const queue = `queue:${name}`
-      const lock = `lock:${name}`
+      const lock = `${prefix}lock:${name}`
       if (!jid) {
         throw new Error(`Cannot handle ${queue}`)
       }
@@ -190,12 +191,17 @@ Router.prototype.onMessage = function (channel, message) {
           } else {
             lock.unlock().catch(err => {
               // we weren't able to reach redis; your lock will eventually expire
-              this.log.error({ err }, 'queue %s', queue)
+              this.log.error({ err }, 'queue %s unlock error', queue)
             })
           }
         })
       }
-      this.redlock.lock(lock, this.queueLock).then(processQueue)
+      this.redlock.lock(lock, this.queueLock).then(processQueue).catch(err => {
+        // ignore resource unavailable error - this is expected
+        if (!(err instanceof Redlock.LockError)) {
+          this.log.error({ err }, 'queue %s lock error', queue)
+        }
+      })
     }
   } else {
     // stanza routing
