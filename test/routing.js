@@ -81,7 +81,7 @@ function messagingTest (t, c2s, from, to) {
           client.send(msg)
         })
       },
-      100
+      500
     )
   })
 
@@ -100,7 +100,7 @@ function messagingTest (t, c2s, from, to) {
           break
         case 'result':
           t.is(stanza.id, pingId)
-          setTimeout(() => client.end(), 100)
+          setTimeout(() => client.end(), 500)
           break
       }
     }

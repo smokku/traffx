@@ -136,11 +136,14 @@ module.exports = function (router) {
           const item = items[0]
           if (item) {
             // check if the contact is in the user's roster with subscription='to' or subscription='both'
-            if (item.to) {
+            // A.3.4. Unsubscribed table
+            // https://tools.ietf.org/html/rfc3921#section-8.2.1 3. Upon receiving the presence stanza of type "unsubscribed"
+            //   addressed to the user, the user's server (1) MUST deliver that presence stanza to the user
+            if (item.to || item.ask) {
               // 1. Deliver the inbound subscription cancellation to all of the user's interested resources
               router.route(stanza.to, stanza)
               // 2. Initiate a roster push
-              Roster.update(update, { to: false }, (err, item) => {
+              Roster.update(update, { to: false, ask: null }, (err, item) => {
                 if (err) return next(err)
                 if (item) {
                   router.route(stanza.to, rosterPush(stanza.to, item))
@@ -265,8 +268,12 @@ module.exports.outbound = function (c2s) {
               // and MUST send a roster push to the contact.
               change.from = false
               push = true
+            } else if (item.in) {
+              // https://tools.ietf.org/html/rfc3921#section-8.2.1
+              // 2. As a result, the contact's server MUST route the presence stanza of type "unsubscribed" to the user
+              next()
             }
-            Roster.update(update, { from: false }, (err, item) => {
+            Roster.update(update, change, (err, item) => {
               if (err) return next(err)
               if (push && item) {
                 c2s.router.route(stanza.from, rosterPush(stanza.from, item))

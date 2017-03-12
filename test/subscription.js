@@ -103,8 +103,8 @@ test.cb('subscription stamping - full from', t => {
   })
 })
 
-test.failing.cb('Requesting a Subscription - denied', t => {
-  const end = checkEnd(t, 5)
+test.cb('Requesting a Subscription - denied', t => {
+  const end = checkEnd(t, 4)
 
   const sendr = t.context.sendr
   sendr.on('error', t.end)
@@ -150,9 +150,6 @@ test.failing.cb('Requesting a Subscription - denied', t => {
       t.is(stanza.to, to)
       recvr.send(pkt`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
       end()
-      // IMO this stanza should be routed
-      // fail until clarified by community
-      t.end('rfc6121')
     } else {
       t.end(stanza.name)
     }
