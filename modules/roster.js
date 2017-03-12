@@ -34,6 +34,12 @@ function rosterPush (to, item) {
   return query.root()
 }
 
+function isDummy (item) {
+  return item.in &&
+    typeof item.to === 'undefined' &&
+    typeof item.from === 'undefined'
+}
+
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
  * TODO extend disco with jabber:iq:roster
@@ -70,28 +76,9 @@ module.exports = function (router) {
               })
 
               for (item of items) {
-                if (item.in) {
-                  // 3.1.3.  Server Processing of Inbound Subscription Request
-                  // then deliver the request when the contact next has an available resource.
-                  // The contact's server MUST continue to deliver the subscription request whenever
-                  // the contact creates an available resource, until the contact either approves or denies the request
-                  // FIXME!!! re-generate presence subscription
-                  router.log.error(
-                    { client_jid: req.to, roster_jid: item.jid },
-                    'Should rerequest presence subscription'
-                  )
-                } else {
-                  if (item.ask) {
-                    // 3.1.2.  Server Processing of Outbound Subscription Request
-                    // server SHOULD resend the subscription request to the contact based on an implementation-specific algorithm
-                    // FIXME!!! re-generate presence subscription request
-                    router.log.error(
-                      { client_jid: req.to, roster_jid: item.jid },
-                      'Should resend presence subscription'
-                    )
-                  }
-                  rosterItem(query, item)
-                }
+                // skip items existing only to store 'Pending In'
+                if (isDummy(item)) continue
+                rosterItem(query, item)
               }
               res.send()
             }
@@ -144,3 +131,4 @@ module.exports = function (router) {
 
 module.exports.rosterItem = rosterItem
 module.exports.rosterPush = rosterPush
+module.exports.isDummy = isDummy

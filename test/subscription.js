@@ -2,7 +2,7 @@
 import test from 'ava'
 import { C2S } from 'node-xmpp-server'
 import xmpp from 'node-xmpp-client'
-import { stanza as S } from 'node-xmpp-core'
+import { stanza as pkt } from 'node-xmpp-core'
 import path from 'path'
 import { uniq } from '../utils'
 
@@ -51,7 +51,7 @@ test.cb.afterEach(t => {
 test.cb('invalid outbound "to"', t => {
   const client = t.context.sendr
   client.on('error', t.end)
-  client.send(S`<presence type="subscribe" to=""/>`)
+  client.send(pkt`<presence type="subscribe" to=""/>`)
   client.on('stanza', stanza => {
     t.true(stanza.is('presence'))
     t.is(stanza.type, 'error')
@@ -72,7 +72,7 @@ test.cb('subscription stamping - empty from', t => {
   recvr.on('error', t.end)
   const id = uniq()
   sendr.send(
-    S`<presence type="subscribe" id="${id}" to="${recvr.session.jid.toString()}"/>`
+    pkt`<presence type="subscribe" id="${id}" to="${recvr.session.jid.toString()}"/>`
   )
   recvr.on('stanza', stanza => {
     t.true(stanza.is('presence'))
@@ -91,7 +91,7 @@ test.cb('subscription stamping - full from', t => {
   recvr.on('error', t.end)
   const id = uniq()
   sendr.send(
-    S`<presence type="subscribe" id="${id}" from="${sendr.session.jid.toString()}" to="${recvr.session.jid.toString()}"/>`
+    pkt`<presence type="subscribe" id="${id}" from="${sendr.session.jid.toString()}" to="${recvr.session.jid.toString()}"/>`
   )
   recvr.on('stanza', stanza => {
     t.true(stanza.is('presence'))
@@ -115,7 +115,7 @@ test.failing.cb('Requesting a Subscription - denied', t => {
   const to = recvr.session.jid.bare().toString()
   const id1 = uniq(3)
   const id2 = uniq(3)
-  sendr.send(S`<presence type="subscribe" id="${id1}" to="${to}"/>`)
+  sendr.send(pkt`<presence type="subscribe" id="${id1}" to="${to}"/>`)
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
       t.is(stanza.type, 'set')
@@ -148,7 +148,7 @@ test.failing.cb('Requesting a Subscription - denied', t => {
       t.is(stanza.id, id1)
       t.is(stanza.from, from)
       t.is(stanza.to, to)
-      recvr.send(S`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
+      recvr.send(pkt`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
       end()
       // IMO this stanza should be routed
       // fail until clarified by community
@@ -175,8 +175,8 @@ function requestApprove (t, start) {
     name: uniq(5)
   }
   start(t, opts, err => {
-    if (err) t.end(err)
-    else sendr.send(S`<presence type="subscribe" id="${opts.id1}" to="${opts.to}"/>`)
+    t.ifError(err)
+    sendr.send(pkt`<presence type="subscribe" id="${opts.id1}" to="${opts.to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -221,7 +221,7 @@ function requestApprove (t, start) {
       t.is(stanza.id, opts.id1)
       t.is(stanza.from, opts.from)
       t.is(stanza.to, opts.to)
-      recvr.send(S`<presence type="subscribed" id="${opts.id2}" to="${stanza.from}"/>`)
+      recvr.send(pkt`<presence type="subscribed" id="${opts.id2}" to="${stanza.from}"/>`)
       end()
     } else {
       t.end(stanza.name)
@@ -257,8 +257,8 @@ test.cb('Requesting a Subscription - already approved contact', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   Roster.update({ User: to, jid: from }, { from: true }, err => {
-    if (err) return t.end(err)
-    sendr.send(S`<presence type="subscribe" from="${from}" to="${to}"/>`)
+    t.ifError(err)
+    sendr.send(pkt`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -299,8 +299,8 @@ test.cb('Requesting a Subscription - pre-approved contact', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   Roster.update({ User: to, jid: from }, { approved: true }, err => {
-    if (err) return t.end(err)
-    sendr.send(S`<presence type="subscribe" from="${from}" to="${to}"/>`)
+    t.ifError(err)
+    sendr.send(pkt`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -360,7 +360,7 @@ test.cb('Pre-Approving a Subscription Request', t => {
 
   const to = recvr.session.jid.bare().toString()
   sendr.send(
-    S`<presence type="subscribed" from="${sendr.session.jid.toString()}" to="${to}"/>`
+    pkt`<presence type="subscribed" from="${sendr.session.jid.toString()}" to="${to}"/>`
   )
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -397,8 +397,8 @@ test.cb('Canceling Pre-Approval', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   Roster.update({ User: from, jid: to }, { approved: true }, err => {
-    if (err) return t.end(err)
-    sendr.send(S`<presence type="unsubscribed" from="${from}" to="${to}"/>`)
+    t.ifError(err)
+    sendr.send(pkt`<presence type="unsubscribed" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -430,11 +430,11 @@ function removing (t, request, fromState, fromWanted, toState, toWanted) {
   const to = recvr.session.jid.bare().toString()
   const id = uniq()
   Roster.update({ User: from, jid: to }, fromState, (err, item) => {
-    if (err) return t.end(err)
+    t.ifError(err)
     Roster.update({ User: to, jid: from }, toState, (err, item) => {
-      if (err) return t.end(err)
+      t.ifError(err)
       sendr.send(
-        S`<presence type="${request}" id="${id}" from="${from}" to="${to}"/>`
+        pkt`<presence type="${request}" id="${id}" from="${from}" to="${to}"/>`
       )
     })
   })
@@ -505,11 +505,11 @@ test.cb('Canceling a Subscription - unknown', t => {
   // should not be bothered when unknown
   recvr.on('stanza', t.end)
 
-  sendr.send(S`<presence type="unsubscribed" to="${recvr.session.jid.toString()}"/>`)
+  sendr.send(pkt`<presence type="unsubscribed" to="${recvr.session.jid.toString()}"/>`)
   // should be no response
   sendr.on('stanza', t.end)
   // but give chance to respond
-  setTimeout(() => t.end(), 100)
+  setTimeout(() => t.end(), 500)
 })
 
 // eslint-disable-next-line ava/test-ended
@@ -533,10 +533,110 @@ test.cb(
   'from'
 )
 
-test.failing.cb('Requesting a Subscription - client resend', t => {
-  t.end('fail')
+test.cb('Canceling a Subscription - pending', t => {
+  const end = checkEnd(t, 3)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  sendr.send(pkt`<presence type="subscribe" to="${to}"/>`)
+  let ask = 'subscribe'
+  sendr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, to)
+      t.is(item.attrs.ask, ask)
+      // will enter 2x for two roster pushes
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+  recvr.on('stanza', stanza => {
+    if (stanza.is('presence')) {
+      if (stanza.type === 'subscribe') {
+        t.is(stanza.from, from)
+        t.is(stanza.to, to)
+        Roster.query({ User: { eq: to }, jid: { eq: from } }, (err, items) => {
+          t.ifError(err)
+          t.is(items.length, 1)
+          const item = items[0]
+          t.is(item.jid, from)
+          t.truthy(item.in)
+          sendr.send(pkt`<presence type="unsubscribe" to="${to}"/>`)
+          ask = undefined
+          setTimeout(() => {
+            Roster.query({ User: { eq: to }, jid: { eq: from } }, (err, items) => {
+              t.ifError(err)
+              t.is(items.length, 0)
+              end()
+            })
+          }, 500)
+        })
+      } else {
+        t.end(stanza.name)
+      }
+    } else {
+      t.end(stanza.name)
+    }
+  })
 })
 
-test.failing.cb('Requesting a Subscription - target resend', t => {
-  t.end('fail')
+test.cb('Requesting a Subscription - client resend', t => {
+  const end = checkEnd(t, 3)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  sendr.send(pkt`<presence type="subscribe" to="${to}"/>`)
+  recvr.on('stanza', stanza => {
+    if (stanza.is('presence')) {
+      t.is(stanza.type, 'subscribe')
+      t.is(stanza.from, from)
+      t.is(stanza.to, to)
+      // now publish sendr presence to trigger resend
+      sendr.send(pkt`<presence/>`)
+      end() // will happen 3 times because of resending
+    } else {
+      t.end(stanza.name)
+    }
+  })
+})
+
+test.cb('Requesting a Subscription - target resend', t => {
+  const end = checkEnd(t, 3)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  sendr.send(pkt`<presence type="subscribe" to="${to}"/>`)
+  recvr.on('stanza', stanza => {
+    if (stanza.is('presence')) {
+      t.is(stanza.type, 'subscribe')
+      t.is(stanza.from, from)
+      t.is(stanza.to, to)
+      // now publish recvr presence to trigger resend
+      recvr.send(pkt`<presence/>`)
+      end() // will happen 3 times because of resending
+    } else {
+      t.end(stanza.name)
+    }
+  })
 })

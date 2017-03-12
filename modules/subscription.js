@@ -1,12 +1,8 @@
 const { StanzaError } = require('junction')
-const { JID } = require('node-xmpp-core')
+const { parse, JID } = require('node-xmpp-core')
 const Roster = require('../models/roster')
-const { rosterPush } = require('./roster')
+const { rosterPush, isDummy } = require('./roster')
 
-// TODO
-// - If a remote contact does not approve or deny the subscription request within some configurable amount of time, the user's server SHOULD resend the subscription request to the contact based on an implementation-specific algorithm (e.g., whenever a new resource becomes available for the user, or after a certain amount of time has elapsed); this helps to recover from transient, silent errors that might have occurred when the original subscription request was routed to the remote domain. When doing so, it is RECOMMENDED for the server to include an 'id' attribute so that it can track responses to the resent subscription request.
-// - Implementation Note: If the user's account has no available resources when the inbound unsubscribed notification is received, the user's server MAY keep a record of the notification (ideally the complete presence stanza) and then deliver the notification when the account next has an available resource. This behavior provides more complete signaling to the user regarding the reasons for the roster change that occurred while the user was offline.
-// - Implementation Note: If the contact's account has no available resources when the inbound unsubscribe notification is received, the contact's server MAY keep a record of the notification (ideally the complete presence stanza) and then deliver the notification when the account next has an available resource. This behavior provides more complete signaling to the user regarding the reasons for the roster change that occurred while the user was offline.
 function shouldHandle (stanza) {
   return stanza.is('presence') &&
     [ 'subscribe', 'subscribed', 'unsubscribe', 'unsubscribed' ].includes(
@@ -119,15 +115,19 @@ module.exports = function (router) {
                 'Should broadcast unavailable presence'
               )
             }
+            // if the contact's server is keeping track of an inbound presence subscription request from the user to the contact
+            // but the user is not yet in the contact's roster, then the contact's server MUST simply remove any record of the inbound
+            // presence subscription request (it cannot remove the user from the contact's roster because the user was never added to the contact's roster).
+            if (isDummy(item)) {
+              Roster.delete(update, err => {
+                if (err) return next(err)
+              })
+            } else {
+              Roster.update(update, { in: null }, err => {
+                if (err) return next(err)
+              })
+            }
           }
-          // if the contact's server is keeping track of an inbound presence subscription request from the user to the contact
-          // but the user is not yet in the contact's roster, then the contact's server MUST simply remove any record of the inbound
-          // presence subscription request (it cannot remove the user from the contact's roster because the user was never added to the contact's roster).
-          // FIXME!
-          router.log.error(
-            { client_jid: stanza.to, roster_jid: stanza.from },
-            'Should remove inbound presence subscription'
-          )
         })
       } else if (stanza.type === 'unsubscribed') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-cancel-inbound
@@ -189,7 +189,7 @@ module.exports.outbound = function (c2s) {
           // https://xmpp.org/rfcs/rfc6121.html#sub-request-outbound
           if (stanza.type === 'subscribe') change = { ask: stanza.toString() }
           // https://xmpp.org/rfcs/rfc6121.html#sub-unsub-outbound
-          if (stanza.type === 'unsubscribe') change = { to: false }
+          if (stanza.type === 'unsubscribe') change = { to: false, ask: null }
           // https://xmpp.org/rfcs/rfc6121.html#sub-request-approvalout
           if (stanza.type === 'subscribed') {
             // https://xmpp.org/rfcs/rfc6121.html#sub-preapproval-proc
@@ -277,6 +277,32 @@ module.exports.outbound = function (c2s) {
           next()
         }
       })
+    } else if (stanza.is('presence') && stanza.type !== 'unavailable') {
+      const from = new JID(stanza.from).bare().toString()
+      if (!stanza.to || stanza.to === from) {
+        debug('presence broadcast')
+        Roster.query({ User: { eq: from } }, (err, items) => {
+          if (err) return next(err)
+          for (var item of items) {
+            // 3.1.3.  Server Processing of Inbound Subscription Request
+            // then deliver the request when the contact next has an available resource.
+            // The contact's server MUST continue to deliver the subscription request whenever
+            // the contact creates an available resource, until the contact either approves or denies the request
+            if (item.in) {
+              stanza.send(parse(item.in))
+            }
+            // 3.1.2.  Server Processing of Outbound Subscription Request
+            // If a remote contact does not approve or deny the subscription request within some configurable amount of time,
+            // the user's server SHOULD resend the subscription request to the contact based on an implementation-specific algorithm
+            // (e.g., whenever a new resource becomes available for the user, or after a certain amount of time has elapsed);
+            if (item.ask) {
+              stanza.send(parse(item.ask))
+            }
+          }
+        })
+      } else {
+        next()
+      }
     } else {
       next()
     }
