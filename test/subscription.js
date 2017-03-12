@@ -149,10 +149,10 @@ test.failing.cb('Requesting a Subscription - denied', t => {
       t.is(stanza.from, from)
       t.is(stanza.to, to)
       recvr.send(S`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
+      end()
       // IMO this stanza should be routed
       // fail until clarified by community
       t.end('rfc6121')
-      end()
     } else {
       t.end(stanza.name)
     }

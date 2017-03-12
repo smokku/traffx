@@ -41,13 +41,13 @@ function C2S (opts = {}) {
       require('./modules/logger')({ prefix: 'C2S: ', logger: debug })
     )
   }
-  var presence = require('./modules/presence')
-  Object.assign(this.streamFeatures, presence.streamFeatures)
+  var subscription = require('./modules/subscription')
+  Object.assign(this.streamFeatures, subscription.streamFeatures)
   var route = (stanza, next) => {
     this.router.process(stanza)
   }
   outbound
-    .use(presence.outbound(this))
+    .use(subscription.outbound(this))
     .use(route)
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 

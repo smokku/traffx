@@ -83,11 +83,11 @@ function Router (opts = {}) {
   if (process.env.DEBUG) {
     user.use(require('./modules/logger')({ prefix: 'USER: ', logger: debug }))
   }
-  user.use(junction.presenceParser())
   user
     .use(require('./modules/roster')(this))
     .use(require('junction-lastactivity')())
-    .use(require('./modules/presence')(this))
+    .use(require('./modules/subscription')(this))
+    .use(junction.presenceParser())
     .use(require('./modules/deliver')(this))
   user
     .use(junction.serviceUnavailable())

@@ -1,12 +1,10 @@
 const { StanzaError } = require('junction')
-const { JID, Presence } = require('node-xmpp-core')
+const { JID } = require('node-xmpp-core')
 const Roster = require('../models/roster')
 const { rosterPush } = require('./roster')
 
 // TODO
-// - Implement Pending-In mechanics
 // - If a remote contact does not approve or deny the subscription request within some configurable amount of time, the user's server SHOULD resend the subscription request to the contact based on an implementation-specific algorithm (e.g., whenever a new resource becomes available for the user, or after a certain amount of time has elapsed); this helps to recover from transient, silent errors that might have occurred when the original subscription request was routed to the remote domain. When doing so, it is RECOMMENDED for the server to include an 'id' attribute so that it can track responses to the resent subscription request.
-//   (use 'ask' to store stanza?)
 // - Implementation Note: If the user's account has no available resources when the inbound unsubscribed notification is received, the user's server MAY keep a record of the notification (ideally the complete presence stanza) and then deliver the notification when the account next has an available resource. This behavior provides more complete signaling to the user regarding the reasons for the roster change that occurred while the user was offline.
 // - Implementation Note: If the contact's account has no available resources when the inbound unsubscribe notification is received, the contact's server MAY keep a record of the notification (ideally the complete presence stanza) and then deliver the notification when the account next has an available resource. This behavior provides more complete signaling to the user regarding the reasons for the roster change that occurred while the user was offline.
 function shouldHandle (stanza) {
@@ -27,12 +25,12 @@ function checkTo (stanza) {
   return null
 }
 
-/* https://xmpp.org/rfcs/rfc6121.html#sub
- * presence subscription
+/* RFC6121 3. Managing Presence Subscriptions
+ * https://xmpp.org/rfcs/rfc6121.html#sub
  */
 module.exports = function (router) {
-  const debug = require('debug')('medium:mod:presence:inbound')
-  return function presence (stanza, res, next) {
+  const debug = require('debug')('medium:mod:subscription:inbound')
+  return function subscription (stanza, res, next) {
     if (shouldHandle(stanza)) {
       const err = checkTo(stanza)
       if (err) return next(err)
@@ -164,8 +162,8 @@ module.exports = function (router) {
 /* C2S generated OUTBOUND packet
  */
 module.exports.outbound = function (c2s) {
-  const debug = require('debug')('medium:mod:presence:outbound')
-  return function presence (stanza, next) {
+  const debug = require('debug')('medium:mod:subscription:outbound')
+  return function subscription (stanza, next) {
     if (shouldHandle(stanza)) {
       // https://xmpp.org/rfcs/rfc6120.html#stanzas-attributes-from-c2s
       stanza.attr('from', new JID(stanza.from).bare().toString())
@@ -243,7 +241,7 @@ module.exports.outbound = function (c2s) {
         } else if (stanza.type === 'unsubscribed') {
           // https://xmpp.org/rfcs/rfc6121.html#sub-cancel-outbound
           if (item) {
-            let change = {}
+            const change = {}
             let push = false
             if (item.in) {
               change.in = null
