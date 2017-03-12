@@ -71,10 +71,24 @@ module.exports = function (router) {
 
               for (item of items) {
                 if (item.in) {
+                  // 3.1.3.  Server Processing of Inbound Subscription Request
+                  // then deliver the request when the contact next has an available resource.
+                  // The contact's server MUST continue to deliver the subscription request whenever
+                  // the contact creates an available resource, until the contact either approves or denies the request
                   // FIXME!!! re-generate presence subscription
+                  router.log.error(
+                    { client_jid: req.to, roster_jid: item.jid },
+                    'Should rerequest presence subscription'
+                  )
                 } else {
                   if (item.ask) {
-                    // FIXME!!! re-generate presence subscription
+                    // 3.1.2.  Server Processing of Outbound Subscription Request
+                    // server SHOULD resend the subscription request to the contact based on an implementation-specific algorithm
+                    // FIXME!!! re-generate presence subscription request
+                    router.log.error(
+                      { client_jid: req.to, roster_jid: item.jid },
+                      'Should resend presence subscription'
+                    )
                   }
                   rosterItem(query, item)
                 }

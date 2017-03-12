@@ -103,6 +103,62 @@ test.cb('subscription stamping - full from', t => {
   })
 })
 
+test.failing.cb('Requesting a Subscription - denied', t => {
+  const end = checkEnd(t, 5)
+
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  const id1 = uniq(3)
+  const id2 = uniq(3)
+  sendr.send(S`<presence type="subscribe" id="${id1}" to="${to}"/>`)
+  sendr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, to)
+      t.is(item.attrs.subscription, undefined)
+      if (item.attrs.ask === 'subscribe') {
+        end()
+      }
+      if (item.attrs.ask === undefined) {
+        end()
+      }
+    } else if (stanza.is('presence')) {
+      t.is(stanza.type, 'unsubscribed')
+      t.is(stanza.id, id2)
+      t.is(stanza.from, to)
+      t.is(stanza.to, from)
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+  recvr.on('stanza', stanza => {
+    if (stanza.is('presence')) {
+      t.is(stanza.type, 'subscribe')
+      t.is(stanza.id, id1)
+      t.is(stanza.from, from)
+      t.is(stanza.to, to)
+      recvr.send(S`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
+      // IMO this stanza should be routed
+      // fail until clarified by community
+      t.end('rfc6121')
+      end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+})
+
 function requestApprove (t, start) {
   const end = checkEnd(t, 5)
 
@@ -293,6 +349,8 @@ test.cb('Pre-Approving a Subscription Request', t => {
   sendr.on('error', t.end)
   const recvr = t.context.recvr
   recvr.on('error', t.end)
+  // pre-approved user should not be bothered
+  recvr.on('stanza', t.end)
 
   const sub = sendr.streamFeatures.getChild(
     'sub',
@@ -322,7 +380,45 @@ test.cb('Pre-Approving a Subscription Request', t => {
   })
 })
 
-function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
+test.cb('Canceling Pre-Approval', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+  // pre-approved user should not be bothered
+  recvr.on('stanza', t.end)
+
+  const sub = sendr.streamFeatures.getChild(
+    'sub',
+    'urn:xmpp:features:pre-approval'
+  )
+  t.truthy(sub)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.update({ User: from, jid: to }, { approved: true }, err => {
+    if (err) return t.end(err)
+    sendr.send(S`<presence type="unsubscribed" from="${from}" to="${to}"/>`)
+  })
+  sendr.on('stanza', stanza => {
+    if (stanza.is('iq')) {
+      t.is(stanza.type, 'set')
+      const query = stanza.getChild('query', 'jabber:iq:roster')
+      t.truthy(query)
+      const items = query.getChildren('item')
+      t.is(items.length, 1)
+      const item = items[0]
+      t.is(item.attrs.jid, to)
+      t.is(item.attrs.ask, undefined)
+      t.is(item.attrs.subscription, undefined)
+      t.end()
+    } else {
+      t.end(stanza.name)
+    }
+  })
+})
+
+function removing (t, request, fromState, fromWanted, toState, toWanted) {
   const end = checkEnd(t, 3)
 
   const sendr = t.context.sendr
@@ -338,7 +434,7 @@ function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
     Roster.update({ User: to, jid: from }, toState, (err, item) => {
       if (err) return t.end(err)
       sendr.send(
-        S`<presence type="unsubscribe" id="${id}" from="${from}" to="${to}"/>`
+        S`<presence type="${request}" id="${id}" from="${from}" to="${to}"/>`
       )
     })
   })
@@ -369,7 +465,7 @@ function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
       t.is(item.attrs.subscription, toWanted)
       end()
     } else if (stanza.is('presence')) {
-      t.is(stanza.type, 'unsubscribe')
+      t.is(stanza.type, request)
       t.is(stanza.id, id)
       t.is(stanza.from, from)
       t.is(stanza.to, to)
@@ -383,7 +479,8 @@ function unsubscribing (t, fromState, fromWanted, toState, toWanted) {
 // eslint-disable-next-line ava/test-ended
 test.cb(
   'Unsubscribing - one-way',
-  unsubscribing,
+  removing,
+  'unsubscribe',
   { to: true },
   undefined,
   { from: true },
@@ -392,11 +489,48 @@ test.cb(
 // eslint-disable-next-line ava/test-ended
 test.cb(
   'Unsubscribing - mutual',
-  unsubscribing,
+  removing,
+  'unsubscribe',
   { from: true, to: true },
   'from',
   { from: true, to: true },
   'to'
+)
+
+test.cb('Canceling a Subscription - unknown', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+  // should not be bothered when unknown
+  recvr.on('stanza', t.end)
+
+  sendr.send(S`<presence type="unsubscribed" to="${recvr.session.jid.toString()}"/>`)
+  // should be no response
+  sendr.on('stanza', t.end)
+  // but give chance to respond
+  setTimeout(() => t.end(), 100)
+})
+
+// eslint-disable-next-line ava/test-ended
+test.cb(
+  'Canceling a Subscription - one-way',
+  removing,
+  'unsubscribed',
+  { from: true },
+  undefined,
+  { to: true },
+  undefined
+)
+// eslint-disable-next-line ava/test-ended
+test.cb(
+  'Canceling a Subscription - mutual',
+  removing,
+  'unsubscribed',
+  { from: true, to: true },
+  'to',
+  { from: true, to: true },
+  'from'
 )
 
 test.failing.cb('Requesting a Subscription - client resend', t => {

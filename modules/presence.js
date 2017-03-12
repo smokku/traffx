@@ -71,6 +71,9 @@ module.exports = function (router) {
               Roster.update(update, { in: stanza.toString() }, (err, item) => {
                 if (err) return next(err)
               })
+              // keep a record of the complete presence stanza comprising the subscription request, including any extended content contained therein
+              // and then deliver the request when the contact next has an available resource
+              // server SHOULD store only one of those requests, such as the first request or last request, and MUST deliver only one of the requests when the contact next has an available resource
             }
           }
         })
@@ -119,6 +122,14 @@ module.exports = function (router) {
               )
             }
           }
+          // if the contact's server is keeping track of an inbound presence subscription request from the user to the contact
+          // but the user is not yet in the contact's roster, then the contact's server MUST simply remove any record of the inbound
+          // presence subscription request (it cannot remove the user from the contact's roster because the user was never added to the contact's roster).
+          // FIXME!
+          router.log.error(
+            { client_jid: stanza.to, roster_jid: stanza.from },
+            'Should remove inbound presence subscription'
+          )
         })
       } else if (stanza.type === 'unsubscribed') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-cancel-inbound
@@ -189,11 +200,11 @@ module.exports.outbound = function (c2s) {
             if (item && item.from) return
 
             if (!item || !item.in) {
+              // 4. If the contact is not yet in the user's roster, the user's server MUST create a roster item for the contact
+              //    with a state of "None" and set the 'approved' flag to a value of "true",
               // 3. If the contact is in the user's roster with a state of "To", "None", or "None + Pending Out",
               //    the user's server MUST note the subscription pre-approval by setting the 'approved' flag to a value of "true",
               //    then push the modified roster item to all of the user's interested resources.
-              // 4. If the contact is not yet in the user's roster, the user's server MUST create a roster item for the contact
-              //    with a state of "None" and set the 'approved' flag to a value of "true",
               Roster.update(update, { approved: true }, (err, item) => {
                 if (err) return next(err)
                 // then push the roster item to all of the user's interested resources.
@@ -206,7 +217,7 @@ module.exports.outbound = function (c2s) {
             } else {
               // 2. If the contact is in the user's roster with a state of "To + Pending In", "None + Pending In",
               //    or "None + Pending Out+In", the user's server MUST handle the stanza as a normal subscription approval
-              change = { from: true, in: null }
+              change = { from: true }
             }
           }
 
@@ -232,31 +243,37 @@ module.exports.outbound = function (c2s) {
         } else if (stanza.type === 'unsubscribed') {
           // https://xmpp.org/rfcs/rfc6121.html#sub-cancel-outbound
           if (item) {
-            if (item.approved || item.in) {
+            let change = {}
+            let push = false
+            if (item.in) {
+              change.in = null
+            }
+            if (item.approved) {
               // 2. If [...]] the 'approved' flag is set to "true"
-              // Also drop Pending-In
-              Roster.update(update, { approved: null, in: null }, err => {
-                if (err) return next(err)
-              })
+              // remove the pre-approval and MUST NOT route or deliver the presence stanza of type "unsubscribed" to the user
+              change.approved = null
+              push = true
             }
             if (item.from) {
               // 3. the contact's server MUST route or deliver both presence notifications of type "unavailable"
-              const unav = new Presence({
-                type: 'unavailable',
-                from: stanza.from,
-                to: stanza.to
-              })
-              stanza.send(unav)
+              // FIXME!!! after implementing presence tracker
+              // While the user is still subscribed to the contact's presence (i.e., before the contact's server routes or delivers the presence stanza of type "unsubscribed" to the user), the contact's server MUST send a presence stanza of type "unavailable" from all of the contact's online resources to the user.
+              c2s.log.error(
+                { client_jid: stanza.from, roster_jid: stanza.to },
+                'Should send unavailable presences'
+              )
               // and presence stanzas of type "unsubscribed" to the user
               next()
               // and MUST send a roster push to the contact.
-              Roster.update(update, { from: false }, (err, item) => {
-                if (err) return next(err)
-                if (item) {
-                  c2s.router.route(stanza.from, rosterPush(stanza.from, item))
-                }
-              })
+              change.from = false
+              push = true
             }
+            Roster.update(update, { from: false }, (err, item) => {
+              if (err) return next(err)
+              if (push && item) {
+                c2s.router.route(stanza.from, rosterPush(stanza.from, item))
+              }
+            })
           }
         } else {
           next()
