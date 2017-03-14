@@ -164,7 +164,7 @@ module.exports = function (router) {
 /*******************************
 /* C2S generated OUTBOUND packet
  */
-module.exports.outbound = function (c2s) {
+module.exports.outbound = function (router) {
   const debug = require('debug')('traffic:mod:subscription:outbound')
   return function subscription (stanza, next) {
     if (shouldHandle(stanza)) {
@@ -210,7 +210,7 @@ module.exports.outbound = function (c2s) {
                 if (err) return next(err)
                 // then push the roster item to all of the user's interested resources.
                 if (item) {
-                  c2s.router.route(stanza.from, rosterPush(stanza.from, item))
+                  router.route(stanza.from, rosterPush(stanza.from, item))
                 }
               })
               // However, the user's server MUST NOT route the presence stanza of type "subscribed" to the contact.
@@ -229,14 +229,14 @@ module.exports.outbound = function (c2s) {
           Roster.update(update, change, (err, item) => {
             if (err) return next(err)
             if (item) {
-              c2s.router.route(stanza.from, rosterPush(stanza.from, item))
+              router.route(stanza.from, rosterPush(stanza.from, item))
             }
           })
 
           if (stanza.type === 'subscribed') {
             // server MUST then also send current presence to the user from each of the contact's available resources.
             // FIXME!!! after implementing presence tracker
-            c2s.log.error(
+            router.log.error(
               { client_jid: stanza.from, roster_jid: stanza.to },
               'Should broadcast current presence'
             )
@@ -259,7 +259,7 @@ module.exports.outbound = function (c2s) {
               // 3. the contact's server MUST route or deliver both presence notifications of type "unavailable"
               // FIXME!!! after implementing presence tracker
               // While the user is still subscribed to the contact's presence (i.e., before the contact's server routes or delivers the presence stanza of type "unsubscribed" to the user), the contact's server MUST send a presence stanza of type "unavailable" from all of the contact's online resources to the user.
-              c2s.log.error(
+              router.log.error(
                 { client_jid: stanza.from, roster_jid: stanza.to },
                 'Should send unavailable presences'
               )
@@ -276,7 +276,7 @@ module.exports.outbound = function (c2s) {
             Roster.update(update, change, (err, item) => {
               if (err) return next(err)
               if (push && item) {
-                c2s.router.route(stanza.from, rosterPush(stanza.from, item))
+                router.route(stanza.from, rosterPush(stanza.from, item))
               }
             })
           }

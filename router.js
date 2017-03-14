@@ -49,10 +49,27 @@ function Router (opts = {}) {
   this.redsub.config('SET', 'notify-keyspace-events', 'El')
   this.redsub.subscribe(this.queueChannel)
 
+  // packet from c2s to the world
+  var outbound = this.outbound = junction()
+  if (process.env.DEBUG) {
+    outbound.use(
+      require('./modules/logger')({ prefix: 'C2S: ', logger: debug })
+    )
+  }
+  var route = (stanza, next) => {
+    this.process(stanza)
+  }
+  outbound
+    .use(require('./modules/subscription').outbound(this))
+    .use(route)
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
+
   // process packet to server
   var server = this.server = junction()
   if (process.env.DEBUG) {
-    server.use(require('./modules/logger')({ prefix: 'SERVER: ', logger: debug }))
+    server.use(
+      require('./modules/logger')({ prefix: 'SERVER: ', logger: debug })
+    )
   }
   server
     .use(require('junction-lastactivity')())
@@ -94,7 +111,8 @@ function Router (opts = {}) {
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 }
 
-Router.os = `${process.release.name}/${process.release.lts || process.versions.node.split('.')[0]} (${os.type()} ${os.arch()})`
+Router.os = `${process.release.name}/${process.release.lts ||
+  process.versions.node.split('.')[0]} (${os.type()} ${os.arch()})`
 
 module.exports = Router
 
@@ -267,6 +285,27 @@ Router.prototype.dispatch = function (local, jid, packet) {
       this.router.send(stanza)
     }
   }
+}
+
+/* handle c2s outbound stanza
+ */
+Router.prototype.handle = function (client, stanza) {
+  debug('handle %s', stanza)
+
+  stanza.send = stanza => {
+    this.process(stanza)
+  }
+
+  const response = this.makeResponse(client.jid, stanza)
+  response.send = () => {
+    client.send(response)
+  }
+
+  this.outbound.handle(stanza, response, err => {
+    if (err) {
+      this.log.error({ client_id: client.id, client_jid: client.jid, err })
+    }
+  })
 }
 
 /* Process server inbound stanza (from c2s, s2s or internally generated)

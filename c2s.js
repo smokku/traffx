@@ -1,6 +1,6 @@
+// eslint-disable-next-line no-unused-vars
 const debug = require('debug')('traffic:c2s')
 const xmpp = require('node-xmpp-core')
-const junction = require('junction')
 
 const NS_SESSION = 'urn:ietf:params:xml:ns:xmpp-session'
 const NS_BIND = 'urn:ietf:params:xml:ns:xmpp-bind'
@@ -35,21 +35,10 @@ function C2S (opts = {}) {
     }
   }
 
-  var outbound = this.outbound = junction()
-  if (process.env.DEBUG) {
-    outbound.use(
-      require('./modules/logger')({ prefix: 'C2S: ', logger: debug })
-    )
-  }
-  var subscription = require('./modules/subscription')
-  Object.assign(this.streamFeatures, subscription.streamFeatures)
-  var route = (stanza, next) => {
-    this.router.process(stanza)
-  }
-  outbound
-    .use(subscription.outbound(this))
-    .use(route)
-    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
+  Object.assign(
+    this.streamFeatures,
+    require('./modules/subscription').streamFeatures
+  )
 
   this.server.on('listening', () => {
     const address = this.server.server.address()
@@ -118,20 +107,7 @@ function C2S (opts = {}) {
       // XMPP-IM case is handled in presence module
       stanza.attr('from', client.jid.toString())
 
-      stanza.send = stanza => {
-        this.router.process(stanza)
-      }
-
-      const response = this.router.makeResponse(client.jid, stanza)
-      response.send = () => {
-        client.send(response)
-      }
-
-      this.outbound.handle(stanza, response, err => {
-        if (err) {
-          this.log.error({ client_id: client.id, client_jid: client.jid, err })
-        }
-      })
+      this.router.handle(client, stanza)
     })
 
     client.on('disconnect', err => {
