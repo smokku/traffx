@@ -119,6 +119,10 @@ function C2S (opts = {}) {
         this.router.unregisterRoute(client.jid, client)
         this.router.unregisterRoute(client.jid.bare(), client)
         this.router.unregisterRoute(client.jid.domain, client)
+        // https://xmpp.org/rfcs/rfc6121.html#presence-unavailable-outbound
+        // If the server detects that the user has gone offline ungracefully, then the server
+        // MUST generate the unavailable presence broadcast on the user's behalf.
+        // FIXME!
       }
     })
   })

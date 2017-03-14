@@ -61,6 +61,8 @@ function Router (opts = {}) {
   }
   outbound
     .use(require('./modules/subscription').outbound(this))
+    .use(junction.presenceParser())
+    .use(require('./modules/presence').outbound(this))
     .use(route)
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
@@ -105,6 +107,7 @@ function Router (opts = {}) {
     .use(require('junction-lastactivity')())
     .use(require('./modules/subscription')(this))
     .use(junction.presenceParser())
+    .use(require('./modules/presence')(this))
     .use(require('./modules/deliver')(this))
   user
     .use(junction.serviceUnavailable())

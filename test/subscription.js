@@ -148,7 +148,9 @@ test.cb('Requesting a Subscription - denied', t => {
       t.is(stanza.id, id1)
       t.is(stanza.from, from)
       t.is(stanza.to, to)
-      recvr.send(pkt`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`)
+      recvr.send(
+        pkt`<presence type="unsubscribed" id="${id2}" to="${stanza.from}"/>`
+      )
       end()
     } else {
       t.end(stanza.name)
@@ -173,7 +175,9 @@ function requestApprove (t, start) {
   }
   start(t, opts, err => {
     t.ifError(err)
-    sendr.send(pkt`<presence type="subscribe" id="${opts.id1}" to="${opts.to}"/>`)
+    sendr.send(
+      pkt`<presence type="subscribe" id="${opts.id1}" to="${opts.to}"/>`
+    )
   })
   sendr.on('stanza', stanza => {
     if (stanza.is('iq')) {
@@ -218,7 +222,9 @@ function requestApprove (t, start) {
       t.is(stanza.id, opts.id1)
       t.is(stanza.from, opts.from)
       t.is(stanza.to, opts.to)
-      recvr.send(pkt`<presence type="subscribed" id="${opts.id2}" to="${stanza.from}"/>`)
+      recvr.send(
+        pkt`<presence type="subscribed" id="${opts.id2}" to="${stanza.from}"/>`
+      )
       end()
     } else {
       t.end(stanza.name)
@@ -237,7 +243,11 @@ test.cb('Requesting a Subscription - unknown contact', t => {
 // eslint-disable-next-line ava/test-ended
 test.cb('Requesting a Subscription - already existing contact', t => {
   requestApprove(t, (t, opts, cb) => {
-    Roster.update({ User: opts.to, jid: opts.from }, { from: false, to: false, name: opts.name }, cb)
+    Roster.update(
+      { User: opts.to, jid: opts.from },
+      { from: false, to: false, name: opts.name },
+      cb
+    )
   })
 })
 
@@ -502,7 +512,9 @@ test.cb('Canceling a Subscription - unknown', t => {
   // should not be bothered when unknown
   recvr.on('stanza', t.end)
 
-  sendr.send(pkt`<presence type="unsubscribed" to="${recvr.session.jid.toString()}"/>`)
+  sendr.send(
+    pkt`<presence type="unsubscribed" to="${recvr.session.jid.toString()}"/>`
+  )
   // should be no response
   sendr.on('stanza', t.end)
   // but give chance to respond
@@ -571,13 +583,19 @@ test.cb('Canceling a Subscription - pending', t => {
           t.truthy(item.in)
           sendr.send(pkt`<presence type="unsubscribe" to="${to}"/>`)
           ask = undefined
-          setTimeout(() => {
-            Roster.query({ User: { eq: to }, jid: { eq: from } }, (err, items) => {
-              t.ifError(err)
-              t.is(items.length, 0)
-              end()
-            })
-          }, 500)
+          setTimeout(
+            () => {
+              Roster.query({ User: { eq: to }, jid: { eq: from } }, (
+                err,
+                items
+              ) => {
+                t.ifError(err)
+                t.is(items.length, 0)
+                end()
+              })
+            },
+            500
+          )
         })
       } else {
         t.end(stanza.name)
@@ -626,6 +644,8 @@ test.cb('Requesting a Subscription - target resend', t => {
   sendr.send(pkt`<presence type="subscribe" to="${to}"/>`)
   recvr.on('stanza', stanza => {
     if (stanza.is('presence')) {
+      // ignore broadcast to self
+      if (!stanza.type) return
       t.is(stanza.type, 'subscribe')
       t.is(stanza.from, from)
       t.is(stanza.to, to)

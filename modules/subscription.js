@@ -307,6 +307,7 @@ module.exports.outbound = function (router) {
             }
           }
         })
+        next()
       } else {
         next()
       }
