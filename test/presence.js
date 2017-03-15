@@ -101,3 +101,46 @@ test.cb('receive broadcast', t => {
     t.end()
   })
 })
+
+test.cb('direct - local', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.toString()
+  const to = recvr.session.jid.toString()
+  const id = uniq(3)
+  sendr.send(pkt`<presence id="${id}" to="${to}"/>`)
+  recvr.on('stanza', stanza => {
+    t.true(stanza.is('presence'))
+    t.falsy(stanza.type)
+    t.is(stanza.id, id)
+    t.is(stanza.from, from)
+    t.is(stanza.to, to)
+    t.end()
+  })
+})
+
+// this needs to be serialized because temporarly replaces router.send()
+test.serial.cb('direct - federated', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+
+  const from = sendr.session.jid.toString()
+  const to = uniq() + '@otherhost/' + uniq(24)
+  const id = uniq(3)
+  sendr.send(pkt`<presence id="${id}" to="${to}"/>`)
+  const rs = router.router.send
+  router.router.send = stanza => {
+    t.true(stanza.is('presence'))
+    t.falsy(stanza.type)
+    t.is(stanza.id, id)
+    t.is(stanza.from, from)
+    t.is(stanza.to, to)
+
+    router.router.send = rs
+    t.end()
+  }
+})
+
