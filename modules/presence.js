@@ -32,7 +32,9 @@ module.exports = function (router) {
           const item = items[0]
           if (item && item.from) {
             Session.all(stanza.to).then(sessions => {
-              sessions = Object.keys(sessions).map(resource => sessions[resource])
+              sessions = Object
+                .keys(sessions)
+                .map(resource => sessions[resource])
               if (sessions.length > 0) {
                 // 4. if the contact has at least one available resource, then the server MUST reply to the presence probe
                 //    by sending to the user the full XML of the last presence stanza with no 'to' attribute received
@@ -87,7 +89,12 @@ module.exports.outbound = function (router) {
 
         // first store presence stanza as-is as session presence
         // before we start modifying it for broadcast below
-        Session.set(stanza).catch(next)
+        const resource = new JID(stanza.from).resource
+        if (!stanza.type) {
+          Session.set(from, resource, stanza).catch(next)
+        } else {
+          Session.del(from, resource, stanza).catch(next)
+        }
 
         // server MUST send the initial presence stanza from the full JID
         // of the user to all contacts that are subscribed to the user's presence
