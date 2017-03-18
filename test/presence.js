@@ -38,8 +38,11 @@ test.cb.beforeEach(t => {
 })
 
 test.cb.afterEach(t => {
-  t.context.sendr.on('end', t.end)
-  t.context.sendr.end()
+  t.context.recvr.on('end', () => {
+    t.context.sendr.on('end', t.end)
+    t.context.sendr.end()
+  })
+  t.context.recvr.end()
 })
 
 function simpleBroadcast (t, pkt) {
@@ -144,3 +147,78 @@ test.serial.cb('direct - federated', t => {
   }
 })
 
+test.cb('probe - unknown', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.update({ User: from, jid: to }, { to: true }, err => {
+    t.ifError(err)
+    sendr.send(pkt`<presence/>`)
+  })
+  sendr.on('stanza', stanza => {
+    // skip self-broadcast
+    if (stanza.from === sendr.session.jid.toString()) return
+    t.true(stanza.is('presence'))
+    t.is(stanza.type, 'unsubscribed')
+    t.is(stanza.from, to)
+    t.is(stanza.to, from)
+    t.end()
+  })
+})
+
+test.cb('probe - one-way', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  const id = uniq(3)
+  Roster.update({ User: from, jid: to }, { to: true }, err => {
+    t.ifError(err)
+    Roster.update({ User: to, jid: from }, { from: true }, err => {
+      t.ifError(err)
+      // publish recvr presence to look for
+      recvr.send(pkt`<presence id="${id}"/>`)
+      recvr.on('stanza', stanza => {
+        t.true(stanza.is('presence'))
+        t.falsy(stanza.type)
+
+        // let's wait a bit for recvr broadcast to settle
+        setTimeout(
+          () => {
+            // finally let's trigger probe
+            sendr.send(pkt`<presence/>`)
+            sendr.on('stanza', stanza => {
+              // skip self-broadcast
+              if (stanza.from === sendr.session.jid.toString()) return
+              t.true(stanza.is('presence'))
+              t.falsy(stanza.type)
+              t.is(stanza.id, id)
+              t.is(stanza.from, recvr.session.jid.toString())
+              t.is(stanza.to, from)
+              t.end()
+            })
+          },
+          500
+        )
+      })
+    })
+  })
+})
+
+test.failing.cb('probe - two-way', t => {
+  t.end('failed')
+})
+test.failing.cb('probe - reverse-way', t => {
+  t.end('failed')
+})
+test.failing.cb('probe - no reprobe', t => {
+  // do not send probes after subsequent broadcast
+  t.end('failed')
+})

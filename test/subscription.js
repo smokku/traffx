@@ -44,8 +44,11 @@ test.cb.beforeEach(t => {
 })
 
 test.cb.afterEach(t => {
-  t.context.sendr.on('end', t.end)
-  t.context.sendr.end()
+  t.context.recvr.on('end', () => {
+    t.context.sendr.on('end', t.end)
+    t.context.sendr.end()
+  })
+  t.context.recvr.end()
 })
 
 test.cb('invalid outbound "to"', t => {

@@ -39,6 +39,9 @@ function Router (opts = {}) {
   this.redis.on('error', err => this.log.error(err))
   this.redlock.on('clientError', err => this.log.error(err))
 
+  // pass as Session store
+  require('./models/session').setStore(this.redis)
+
   // route messaging
   this._channelEmitter = new EventEmitter().setMaxListeners(0)
   this.redsub.on('message', this.onMessage.bind(this))
@@ -294,6 +297,8 @@ Router.prototype.dispatch = function (local, jid, packet) {
  */
 Router.prototype.handle = function (client, stanza) {
   debug('handle %s', stanza)
+
+  stanza.client = client
 
   stanza.send = stanza => {
     this.process(stanza)

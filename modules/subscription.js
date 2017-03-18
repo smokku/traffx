@@ -287,7 +287,7 @@ module.exports.outbound = function (router) {
     } else if (stanza.is('presence') && stanza.type !== 'unavailable') {
       const from = new JID(stanza.from).bare().toString()
       if (!stanza.to || stanza.to === from) {
-        debug('presence broadcast')
+        debug('presence broadcast triggering')
         Roster.query({ User: { eq: from } }, (err, items) => {
           if (err) return next(err)
           for (var item of items) {

@@ -1,5 +1,11 @@
 - expire queue: items
   - catch expiry through keyspace notification and process ass usuall
+- track online & interested resources by router requesting client to subscribe additional channels
+- track last unavailable presence and answer to probes
+- cache contact's presence and send instead of probing
+  (in Redis, with timeout triggering reprobe) 4.3.1.
+- refactor Roster model to use .all() and .item() promises
+  Roster.item(user, jid).then(item => {}).catch(next)
 - https://xmpp.org/extensions/xep-0156.html Discovering Alternative XMPP Connection Methods
 - https://xmpp.org/extensions/xep-0128.html Service Discovery Extensions
 - https://xmpp.org/extensions/xep-0237.html Roster Versioning
@@ -20,5 +26,3 @@
 
 - https://www.graylog.org
 - some Business Intelligence dashboard
-
-
