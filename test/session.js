@@ -46,9 +46,9 @@ test('set & all', async t => {
   const pres1 = pkt`<presence from="${user}/${res1}"/>`
   const pres2 = pkt`<presence from="${user}/${res2}"/>`
   const pres3 = pkt`<presence from="${user}/${res3}"/>`
-  await Session.set(user, res1, pres1)
-  await Session.set(user, res2, pres2)
-  await Session.set(user, res3, pres3)
+  await Session.set(user, res1, 0, pres1)
+  await Session.set(user, res2, 0, pres2)
+  await Session.set(user, res3, 0, pres3)
   const sessions = await Session.all(user)
   t.is(Object.keys(sessions).length, 3)
   t.is(sessions[res1], pres1.toString())
@@ -62,16 +62,38 @@ test('set & one', async t => {
   const res2 = uniq()
   const pres1 = pkt`<presence from="${user}/${res1}"/>`
   const pres2 = pkt`<presence from="${user}/${res2}"/>`
-  await Session.set(user, res1, pres1)
-  await Session.set(user, res2, pres2)
+  await Session.set(user, res1, 0, pres1)
+  await Session.set(user, res2, 0, pres2)
   const sess1 = await Session.one(user, res1)
   const sess2 = await Session.one(user, res2)
   t.is(sess1, pres1.toString())
   t.is(sess2, pres2.toString())
 })
 
-test.failing('set & top', t => {
-  throw new Error('fail')
+test('set & top', async t => {
+  const user = uniq(3) + '@localhost'
+  const res1 = uniq()
+  const res2 = uniq()
+  const res3 = uniq()
+  const prio1 = String(123)
+  const prio2 = String(42)
+  const prio3 = String(1)
+  const pres1 = pkt`<presence from="${user}/${res1}"><priority>${prio1}</priority></presence>`
+  const pres2 = pkt`<presence from="${user}/${res2}"><priority>${prio2}</priority></presence>`
+  const pres3 = pkt`<presence from="${user}/${res3}"><priority>${prio3}</priority></presence>`
+  await Session.set(user, res1, prio1, pres1)
+  await Session.set(user, res2, prio2, pres2)
+  await Session.set(user, res3, prio3, pres3)
+  const sessions = await Session.all(user)
+  t.is(Object.keys(sessions).length, 3)
+  let top = await Session.top(user)
+  t.is(top, res1)
+  await Session.del(user, res1)
+  top = await Session.top(user)
+  t.is(top, res2)
+  await Session.del(user, res3)
+  top = await Session.top(user)
+  t.is(top, res2)
 })
 
 test('set & del', async t => {
@@ -80,8 +102,8 @@ test('set & del', async t => {
   const res2 = uniq()
   const pres1 = pkt`<presence from="${user}/${res1}"/>`
   const pres2 = pkt`<presence from="${user}/${res2}"/>`
-  await Session.set(user, res1, pres1)
-  await Session.set(user, res2, pres2)
+  await Session.set(user, res1, 0, pres1)
+  await Session.set(user, res2, 0, pres2)
   let sessions = await Session.all(user)
   t.is(Object.keys(sessions).length, 2)
   await Session.del(user, res1)
@@ -91,6 +113,8 @@ test('set & del', async t => {
   await Session.del(user, res2)
   sessions = await Session.all(user)
   t.falsy(sessions)
+  const top = await Session.top(user)
+  t.falsy(top)
 })
 
 test.cb('start & end', t => {
@@ -111,7 +135,9 @@ test.cb('start & end', t => {
       client.send(pkt`<presence type='unavailable'/>`)
     } else if (stanza.type === 'unavailable') {
       const sessions = await Session.all(from)
+      const top = await Session.top(from)
       t.falsy(sessions)
+      t.falsy(top)
       t.end()
     } else {
       t.end(stanza.type)
@@ -138,19 +164,9 @@ test.failing.cb('teardown', t => {
   client.on('end', async () => {
     t.context.client = null
     const sessions = await Session.all(from)
+    const top = await Session.top(from)
     t.falsy(sessions)
+    t.falsy(top)
     t.end()
   })
-})
-
-test.failing.cb('priority', t => {
-  // connect 3
-  // check top (top)
-  // remove top
-  // check top (middle)
-  // remove bottom
-  // check top (middle)
-  // remove middle
-  // check top (null)
-  t.end('fail')
 })

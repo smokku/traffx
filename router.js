@@ -304,7 +304,7 @@ Router.prototype.handle = function (client, stanza) {
     this.process(stanza)
   }
 
-  const response = this.makeResponse(client.jid, stanza)
+  const response = this.makeResponse(client.jid.bare(), stanza)
   response.send = () => {
     client.send(response)
   }

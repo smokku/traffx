@@ -1,4 +1,4 @@
-// const { StanzaError } = require('junction')
+const { StanzaError } = require('junction')
 const { parse, JID, Presence } = require('node-xmpp-core')
 const Roster = require('../models/roster')
 const Session = require('../models/session')
@@ -90,8 +90,25 @@ module.exports.outbound = function (router) {
         // first store presence stanza as-is as session presence
         // before we start modifying it for broadcast below
         const resource = new JID(stanza.from).resource
+        const priorityElement = stanza.getChild('priority')
+        const priority = priorityElement
+          ? parseFloat(priorityElement.getText())
+          : 0
+        // https://xmpp.org/rfcs/rfc6121.html#presence-syntax-children-priority
+        if (
+          Number.isNaN(priority) ||
+            priority < -128 ||
+            priority > 127 ||
+            priority !== Math.floor(priority)
+        ) {
+          return next(new StanzaError(
+            'Invalid presence priority',
+            'modify',
+            'bad-request'
+          ))
+        }
         if (!stanza.type) {
-          Session.set(from, resource, stanza).catch(next)
+          Session.set(from, resource, priority, stanza).catch(next)
         } else {
           Session.del(from, resource, stanza).catch(next)
         }
@@ -117,7 +134,29 @@ module.exports.outbound = function (router) {
         stanza.to = from
         router.route(from, stanza)
       } else {
-        next()
+        // https://xmpp.org/rfcs/rfc6121.html#presence-syntax-type
+        // If the value of the 'type' attribute is not one of the foregoing values, the recipient
+        // or an intermediate router SHOULD return a stanza error of <bad-request/>
+        if (
+          [
+            undefined,
+            'error',
+            'probe',
+            'subscribe',
+            'subscribed',
+            'unavailable',
+            'unsubscribe',
+            'unsubscribed'
+          ].includes(stanza.type)
+        ) {
+          next()
+        } else {
+          return next(new StanzaError(
+            'Invalid presence type: ' + stanza.type,
+            'modify',
+            'bad-request'
+          ))
+        }
       }
     } else {
       next()

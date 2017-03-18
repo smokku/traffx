@@ -4,6 +4,10 @@ function sessionKey (user) {
   return `session:${user}`
 }
 
+function priorityKey (user) {
+  return `session.priority:${user}`
+}
+
 const Session = {
   all (user) {
     return new Promise((resolve, reject) => {
@@ -21,27 +25,39 @@ const Session = {
       })
     })
   },
-  first (user) {
+  top (user) {
     return new Promise((resolve, reject) => {
-      reject(new Error('not-implemented'))
+      redis.zrevrangebyscore(priorityKey(user), '+inf', '-inf', 'LIMIT', 0, 1, (
+        err,
+        obj
+      ) => {
+        if (err) return reject(err)
+        resolve(obj[0])
+      })
     })
   },
-  set (user, resource, stanza) {
+  set (user, resource, priority, stanza) {
     return new Promise((resolve, reject) => {
-      redis.hset(sessionKey(user), resource, stanza.toString(), (err, obj) => {
-        if (err) return reject(err)
-          // TODO create index by priority
-        resolve(obj)
-      })
+      redis
+        .multi()
+        .hset(sessionKey(user), resource, stanza.toString())
+        .zadd(priorityKey(user), priority, resource)
+        .exec((err, replies) => {
+          if (err) return reject(err)
+          resolve(replies)
+        })
     })
   },
   del (user, resource) {
     return new Promise((resolve, reject) => {
-      redis.hdel(sessionKey(user), resource, (err, obj) => {
-        if (err) return reject(err)
-          // TODO update priority index
-        resolve(obj)
-      })
+      redis
+        .multi()
+        .hdel(sessionKey(user), resource)
+        .zrem(priorityKey(user), resource)
+        .exec((err, replies) => {
+          if (err) return reject(err)
+          resolve(replies)
+        })
     })
   }
 }

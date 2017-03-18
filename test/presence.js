@@ -45,9 +45,44 @@ test.cb.afterEach(t => {
   t.context.recvr.end()
 })
 
+function invalidBroadcast (t, pkt) {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+  recvr.on('stanza', t.end)
+  sendr.send(pkt)
+  sendr.on('stanza', stanza => {
+    t.true(stanza.is('presence'))
+    t.is(stanza.type, 'error')
+    t.is(stanza.from, sendr.session.jid.bare().toString())
+    t.is(stanza.to, sendr.session.jid.toString())
+    const err = stanza.getChild('error')
+    t.is(err.attrs.type, 'modify')
+    const type = err.getChild('bad-request', 'urn:ietf:params:xml:ns:xmpp-stanzas')
+    t.truthy(type)
+    t.end()
+  })
+}
+
+// eslint-disable-next-line ava/test-ended
+test.cb('invalid type', invalidBroadcast, pkt`<presence type="available"/>`)
+
+// eslint-disable-next-line ava/test-ended
+test.cb('invalid priority', invalidBroadcast, pkt`<presence><priority>foo</priority></presence>`)
+
+// eslint-disable-next-line ava/test-ended
+test.cb('out-of-range priority', invalidBroadcast, pkt`<presence><priority>1000</priority></presence>`)
+
+// eslint-disable-next-line ava/test-ended
+test.cb('non-integer priority', invalidBroadcast, pkt`<presence><priority>1.1</priority></presence>`)
+
 function simpleBroadcast (t, pkt) {
   const sendr = t.context.sendr
   sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+  recvr.on('stanza', t.end)
   const type = pkt.type
   const id = pkt.id
   sendr.send(pkt)
