@@ -33,14 +33,9 @@ module.exports = function (router) {
 
       debug('%s %s', stanza.type, stanza)
 
-      const query = { User: { eq: stanza.to }, jid: { eq: stanza.from } }
-      const update = { User: stanza.to, jid: stanza.from }
-
       if (stanza.type === 'subscribe') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-request-inbound
-        Roster.query(query, (err, items) => {
-          if (err) return next(err)
-          const item = items[0]
+        Roster.one(stanza.to, stanza.from).then(item => {
           if (item && item.from) {
             // 2. If the contact exists and the user already has a subscription to the contact's presence
             debug('already subscribed', item)
@@ -52,62 +47,52 @@ module.exports = function (router) {
               debug('already approved', item)
               res.type = 'subscribed'
               res.send()
-              Roster.update(update, { from: true }, (err, item) => {
-                if (err) return next(err)
-                if (item) {
-                  router.route(stanza.to, rosterPush(stanza.to, item))
-                }
-              })
+              Roster.set(stanza.to, stanza.from, { from: true }).then(item => {
+                router.route(stanza.to, rosterPush(stanza.to, item))
+              }).catch(next)
             } else {
               // 3. if there is at least one available resource associated with the contact
               router.route(stanza.to, stanza)
               // 4. Otherwise, if the contact has no available resources when the subscription request
-              Roster.update(update, { in: stanza.toString() }, (err, item) => {
-                if (err) return next(err)
-              })
+              Roster
+                .set(stanza.to, stanza.from, { in: stanza.toString() })
+                .catch(next)
               // keep a record of the complete presence stanza comprising the subscription request, including any extended content contained therein
               // and then deliver the request when the contact next has an available resource
               // server SHOULD store only one of those requests, such as the first request or last request, and MUST deliver only one of the requests when the contact next has an available resource
             }
           }
-        })
+        }).catch(next)
       } else if (stanza.type === 'subscribed') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-request-approvalin
-        Roster.query(query, (err, items) => {
-          if (err) return next(err)
-          const item = items[0]
+        Roster.one(stanza.to, stanza.from).then(item => {
           if (item) {
             // check if the contact is in the user's roster with subscription='none' or subscription='from' and the 'ask' flag set to "subscribe"
             if (!item.to && item.ask) {
               // 1. Deliver the inbound subscription approval to all of the user's interested resources
               router.route(stanza.to, stanza)
               // 2. Initiate a roster push
-              Roster.update(update, { to: true, ask: null }, (err, item) => {
-                if (err) return next(err)
-                if (item) {
+              Roster
+                .set(stanza.to, stanza.from, { to: true, ask: null })
+                .then(item => {
                   router.route(stanza.to, rosterPush(stanza.to, item))
-                }
-              })
+                })
+                .catch(next)
             }
           }
-        })
+        }).catch(next)
       } else if (stanza.type === 'unsubscribe') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-unsub-inbound
-        Roster.query(query, (err, items) => {
-          if (err) return next(err)
-          const item = items[0]
+        Roster.one(stanza.to, stanza.from).then(item => {
           if (item) {
             // check if the user's bare JID is in the contact's roster with subscription='from' or subscription='both'
             if (item.from) {
               // 1. Deliver the inbound unsubscribe to all of the contact's interested resources
               router.route(stanza.to, stanza)
               // 2. Initiate a roster push
-              Roster.update(update, { from: false }, (err, item) => {
-                if (err) return next(err)
-                if (item) {
-                  router.route(stanza.to, rosterPush(stanza.to, item))
-                }
-              })
+              Roster.set(stanza.to, stanza.from, { from: false }).then(item => {
+                router.route(stanza.to, rosterPush(stanza.to, item))
+              }).catch(next)
               // 3. Generate an outbound presence stanza of type "unavailable" from each of the contact's available resources to the user.
               // FIXME!!! after implementing presence tracker
               router.log.error(
@@ -119,21 +104,15 @@ module.exports = function (router) {
             // but the user is not yet in the contact's roster, then the contact's server MUST simply remove any record of the inbound
             // presence subscription request (it cannot remove the user from the contact's roster because the user was never added to the contact's roster).
             if (isDummy(item)) {
-              Roster.delete(update, err => {
-                if (err) return next(err)
-              })
+              Roster.del(stanza.to, stanza.from).catch(next)
             } else {
-              Roster.update(update, { in: null }, err => {
-                if (err) return next(err)
-              })
+              Roster.set(stanza.to, stanza.from, { in: null }).catch(next)
             }
           }
-        })
+        }).catch(next)
       } else if (stanza.type === 'unsubscribed') {
         // https://xmpp.org/rfcs/rfc6121.html#sub-cancel-inbound
-        Roster.query(query, (err, items) => {
-          if (err) return next(err)
-          const item = items[0]
+        Roster.one(stanza.to, stanza.from).then(item => {
           if (item) {
             // check if the contact is in the user's roster with subscription='to' or subscription='both'
             // A.3.4. Unsubscribed table
@@ -143,15 +122,12 @@ module.exports = function (router) {
               // 1. Deliver the inbound subscription cancellation to all of the user's interested resources
               router.route(stanza.to, stanza)
               // 2. Initiate a roster push
-              Roster.update(update, { to: false, ask: null }, (err, item) => {
-                if (err) return next(err)
-                if (item) {
-                  router.route(stanza.to, rosterPush(stanza.to, item))
-                }
-              })
+              Roster.set(stanza.to, stanza.from, { to: false, ask: null }).then(item => {
+                router.route(stanza.to, rosterPush(stanza.to, item))
+              }).catch(next)
             }
           }
-        })
+        }).catch(next)
       } else {
         next()
       }
@@ -176,13 +152,7 @@ module.exports.outbound = function (router) {
 
       debug('%s %s', stanza.type, stanza)
 
-      const query = { User: { eq: stanza.from }, jid: { eq: stanza.to } }
-      const update = { User: stanza.from, jid: stanza.to }
-
-      Roster.query(query, (err, items) => {
-        if (err) return next(err)
-        const item = items[0]
-
+      Roster.one(stanza.from, stanza.to).then(item => {
         if (
           stanza.type === 'subscribe' ||
             stanza.type === 'unsubscribe' ||
@@ -206,13 +176,10 @@ module.exports.outbound = function (router) {
               // 3. If the contact is in the user's roster with a state of "To", "None", or "None + Pending Out",
               //    the user's server MUST note the subscription pre-approval by setting the 'approved' flag to a value of "true",
               //    then push the modified roster item to all of the user's interested resources.
-              Roster.update(update, { approved: true }, (err, item) => {
-                if (err) return next(err)
+              Roster.set(stanza.from, stanza.to, { approved: true }).then(item => {
                 // then push the roster item to all of the user's interested resources.
-                if (item) {
-                  router.route(stanza.from, rosterPush(stanza.from, item))
-                }
-              })
+                router.route(stanza.from, rosterPush(stanza.from, item))
+              }).catch(next)
               // However, the user's server MUST NOT route the presence stanza of type "subscribed" to the contact.
               return
             } else {
@@ -226,12 +193,9 @@ module.exports.outbound = function (router) {
           next()
 
           // server then MUST send an updated roster push to all of the contact's interested resources
-          Roster.update(update, change, (err, item) => {
-            if (err) return next(err)
-            if (item) {
-              router.route(stanza.from, rosterPush(stanza.from, item))
-            }
-          })
+          Roster.set(stanza.from, stanza.to, change).then(item => {
+            router.route(stanza.from, rosterPush(stanza.from, item))
+          }).catch(next)
 
           if (stanza.type === 'subscribed') {
             // server MUST then also send current presence to the user from each of the contact's available resources.
@@ -273,23 +237,21 @@ module.exports.outbound = function (router) {
               // 2. As a result, the contact's server MUST route the presence stanza of type "unsubscribed" to the user
               next()
             }
-            Roster.update(update, change, (err, item) => {
-              if (err) return next(err)
-              if (push && item) {
+            Roster.set(stanza.from, stanza.to, change).then(item => {
+              if (push) {
                 router.route(stanza.from, rosterPush(stanza.from, item))
               }
-            })
+            }).catch(next)
           }
         } else {
           next()
         }
-      })
+      }).catch(next)
     } else if (stanza.is('presence') && stanza.type !== 'unavailable') {
       const from = new JID(stanza.from).bare().toString()
       if (!stanza.to || stanza.to === from) {
         debug('presence broadcast triggering')
-        Roster.query({ User: { eq: from } }, (err, items) => {
-          if (err) return next(err)
+        Roster.all(from).then(items => {
           for (var item of items) {
             // 3.1.3.  Server Processing of Inbound Subscription Request
             // then deliver the request when the contact next has an available resource.
@@ -306,7 +268,7 @@ module.exports.outbound = function (router) {
               stanza.send(parse(item.ask))
             }
           }
-        })
+        }).catch(next)
         next()
       } else {
         next()

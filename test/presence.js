@@ -145,10 +145,9 @@ test.cb('receive broadcast', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq(3)
-  Roster.update({ User: from, jid: to }, { from: true }, err => {
-    t.ifError(err)
+  Roster.set(from, to, { from: true }).then(() => {
     sendr.send(pkt`<presence id="${id}"/>`)
-  })
+  }).catch(t.end)
   recvr.on('stanza', stanza => {
     t.true(stanza.is('presence'))
     t.falsy(stanza.type)
@@ -209,10 +208,9 @@ test.cb('probe - unknown', t => {
 
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
-  Roster.update({ User: from, jid: to }, { to: true }, err => {
-    t.ifError(err)
+  Roster.set(from, to, { to: true }).then(() => {
     sendr.send(pkt`<presence/>`)
-  })
+  }).catch(t.end)
   sendr.on('stanza', stanza => {
     // skip self-broadcast
     if (stanza.from === sendr.session.jid.toString()) return
@@ -233,10 +231,8 @@ test.cb('probe - one-way', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq(3)
-  Roster.update({ User: from, jid: to }, { to: true }, err => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, { from: true }, err => {
-      t.ifError(err)
+  Roster.set(from, to, { to: true }).then(() => {
+    Roster.set(to, from, { from: true }).then(() => {
       // publish recvr presence to look for
       recvr.send(pkt`<presence id="${id}"/>`)
       recvr.on('stanza', stanza => {
@@ -275,10 +271,8 @@ test.cb('probe - two-way', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq(3)
-  Roster.update({ User: from, jid: to }, { from: true, to: true }, err => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, { from: true, to: true }, err => {
-      t.ifError(err)
+  Roster.set(from, to, { from: true, to: true }).then(() => {
+    Roster.set(to, from, { from: true, to: true }).then(() => {
       // first we get unavailable
       let sendrType = 'unavailable'
       // publish recvr presence to look for
@@ -326,10 +320,8 @@ test.cb('probe - reverse-way', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq(3)
-  Roster.update({ User: from, jid: to }, { from: true }, err => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, { to: true }, err => {
-      t.ifError(err)
+  Roster.set(from, to, { from: true }).then(() => {
+    Roster.set(to, from, { to: true }).then(() => {
       // first we get unavailable
       let sendrType = 'unavailable'
       // publish recvr presence to look for
@@ -377,11 +369,8 @@ test.cb('probe - offline', t => {
 
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
-  Roster.update({ User: from, jid: to }, { from: true, to: true }, err => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, { from: true, to: true }, err => {
-      t.ifError(err)
-
+  Roster.set(from, to, { from: true, to: true }).then(() => {
+    Roster.set(to, from, { from: true, to: true }).then(() => {
       recvr.end()
       recvr.on('end', () => {
         sendr.send(pkt`<presence/>`)
@@ -407,10 +396,8 @@ test.cb('probe - no reprobe', t => {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq(3)
-  Roster.update({ User: from, jid: to }, { to: true }, err => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, { from: true }, err => {
-      t.ifError(err)
+  Roster.set(from, to, { to: true }).then(() => {
+    Roster.set(to, from, { from: true }).then(() => {
       // publish recvr presence to look for
       recvr.send(pkt`<presence id="${id}"/>`)
       recvr.on('stanza', stanza => {

@@ -4,8 +4,6 @@
 - track last unavailable presence and answer to probes
 - cache contact's presence and send instead of probing
   (in Redis, with timeout triggering reprobe) 4.3.1.
-- refactor Roster model to use .all() and .item() promises
-  Roster.item(user, jid).then(item => {}).catch(next)
 - Session cleanup job: iterate all Sessions and "ping" client via direct route
   and remove non responding sessions from Redis
 - https://xmpp.org/extensions/xep-0156.html Discovering Alternative XMPP Connection Methods

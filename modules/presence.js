@@ -26,18 +26,15 @@ module.exports = function (router) {
         // https://xmpp.org/rfcs/rfc6121.html#presence-probe-inbound-id
         resp.id = stanza.id
         // https://xmpp.org/rfcs/rfc6121.html#presence-probe-inbound
-        const query = { User: { eq: stanza.to }, jid: { eq: stanza.from } }
-        Roster.query(query, (err, items) => {
-          if (err) return next(err)
-          const item = items[0]
+        Roster.one(stanza.to, stanza.from).then(item => {
           if (item && item.from) {
             Session.all(stanza.to).then(sessions => {
               if (
                 sessions &&
                   (sessions = Object
                     .keys(sessions)
-                    .map(resource => sessions[resource])
-                  ).length > 0
+                    .map(resource => sessions[resource])).length >
+                    0
               ) {
                 // 4. if the contact has at least one available resource, then the server MUST reply to the presence probe
                 //    by sending to the user the full XML of the last presence stanza with no 'to' attribute received
@@ -65,7 +62,7 @@ module.exports = function (router) {
             resp.type = 'unsubscribed'
             resp.send()
           }
-        })
+        }).catch(next)
       } else {
         next()
       }
@@ -122,9 +119,8 @@ module.exports.outbound = function (router) {
 
         // server MUST send the initial presence stanza from the full JID
         // of the user to all contacts that are subscribed to the user's presence
-        Roster.query({ User: { eq: from } }, (err, items) => {
+        Roster.all(from).then(items => {
           var item
-          if (err) return next(err)
           for (item of items) {
             if (item.from) {
               stanza.to = item.jid
@@ -135,7 +131,7 @@ module.exports.outbound = function (router) {
               stanza.send(probe)
             }
           }
-        })
+        }).catch(next)
         // server MUST also broadcast initial presence from the user's newly available resource
         // to all of the user's available resources
         stanza.to = from

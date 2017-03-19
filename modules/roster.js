@@ -65,27 +65,20 @@ module.exports = function (router) {
             'bad-request'
           ))
         }
-        try {
-          Roster.query({ User: { eq: req.to } }, (err, items) => {
-            if (err) next(err)
-            else {
-              query = res.c('query', {
-                xmlns: 'jabber:iq:roster',
-                // FIXME!
-                ver: new Date().toISOString()
-              })
-
-              for (item of items) {
-                // skip items existing only to store 'Pending In'
-                if (isDummy(item)) continue
-                rosterItem(query, item)
-              }
-              res.send()
-            }
+        Roster.all(req.to).then(items => {
+          query = res.c('query', {
+            xmlns: 'jabber:iq:roster',
+            // FIXME!
+            ver: new Date().toISOString()
           })
-        } catch (err) {
-          next(err)
-        }
+
+          for (item of items) {
+            // skip items existing only to store 'Pending In'
+            if (isDummy(item)) continue
+            rosterItem(query, item)
+          }
+          res.send()
+        }).catch(next)
       }
       if (req.type === 'set') {
         // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
@@ -103,25 +96,21 @@ module.exports = function (router) {
             'bad-request'
           ))
         }
-        try {
-          const cb = err => {
-            if (err) next(err)
-            else res.send()
-          }
-          const key = { User: req.to, jid: item.attrs.jid }
-          if (item.attrs.subscription === 'remove') {
-            Roster.delete(key, cb)
-            // FIXME should send presence-unsubscribed and presence-offline?
-          } else {
-            Roster.update(key, { name: item.attrs.name }, cb)
-          }
-          // TODO
-          // 2.1.2.6.  Group Element
-          // FIXME 2.1.6.  Roster Push
-          // If a connected resource or available resource requests the roster, it is referred to as an "interested resource". The server MUST send roster pushes to all interested resources.
-        } catch (err) {
-          next(err)
+        if (item.attrs.subscription === 'remove') {
+          Roster.del(req.to, item.attrs.jid).then(() => res.send()).catch(next)
+          // FIXME should send presence-unsubscribed and presence-offline?
+        } else {
+          Roster
+            .set(req.to, item.attrs.jid, { name: item.attrs.name })
+            .then(() => res.send())
+            .catch(next)
         }
+        // TODO
+        // 2.1.2.6.  Group Element
+        // FIXME 2.1.6.  Roster Push
+        // If a connected resource or available resource requests the roster,
+        // it is referred to as an "interested resource". The server MUST send
+        // roster pushes to all interested resources.
       }
     } else {
       next()

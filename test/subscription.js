@@ -246,11 +246,7 @@ test.cb('Requesting a Subscription - unknown contact', t => {
 // eslint-disable-next-line ava/test-ended
 test.cb('Requesting a Subscription - already existing contact', t => {
   requestApprove(t, (t, opts, cb) => {
-    Roster.update(
-      { User: opts.to, jid: opts.from },
-      { from: false, to: false, name: opts.name },
-      cb
-    )
+    Roster.set(opts.to, opts.from, { from: false, to: false, name: opts.name }).then(() => cb()).catch(cb)
   })
 })
 
@@ -266,8 +262,7 @@ test.cb('Requesting a Subscription - already approved contact', t => {
 
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
-  Roster.update({ User: to, jid: from }, { from: true }, err => {
-    t.ifError(err)
+  Roster.set(to, from, { from: true }).then(() => {
     sendr.send(pkt`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
@@ -308,8 +303,7 @@ test.cb('Requesting a Subscription - pre-approved contact', t => {
 
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
-  Roster.update({ User: to, jid: from }, { approved: true }, err => {
-    t.ifError(err)
+  Roster.set(to, from, { approved: true }).then(() => {
     sendr.send(pkt`<presence type="subscribe" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
@@ -406,8 +400,7 @@ test.cb('Canceling Pre-Approval', t => {
 
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
-  Roster.update({ User: from, jid: to }, { approved: true }, err => {
-    t.ifError(err)
+  Roster.set(from, to, { approved: true }).then(() => {
     sendr.send(pkt`<presence type="unsubscribed" from="${from}" to="${to}"/>`)
   })
   sendr.on('stanza', stanza => {
@@ -439,10 +432,8 @@ function removing (t, request, fromState, fromWanted, toState, toWanted) {
   const from = sendr.session.jid.bare().toString()
   const to = recvr.session.jid.bare().toString()
   const id = uniq()
-  Roster.update({ User: from, jid: to }, fromState, (err, item) => {
-    t.ifError(err)
-    Roster.update({ User: to, jid: from }, toState, (err, item) => {
-      t.ifError(err)
+  Roster.set(from, to, fromState).then(() => {
+    Roster.set(to, from, toState).then(() => {
       sendr.send(
         pkt`<presence type="${request}" id="${id}" from="${from}" to="${to}"/>`
       )
@@ -578,24 +569,17 @@ test.cb('Canceling a Subscription - pending', t => {
       if (stanza.type === 'subscribe') {
         t.is(stanza.from, from)
         t.is(stanza.to, to)
-        Roster.query({ User: { eq: to }, jid: { eq: from } }, (err, items) => {
-          t.ifError(err)
-          t.is(items.length, 1)
-          const item = items[0]
+        Roster.one(to, from).then(item => {
           t.is(item.jid, from)
           t.truthy(item.in)
           sendr.send(pkt`<presence type="unsubscribe" to="${to}"/>`)
           ask = undefined
           setTimeout(
             () => {
-              Roster.query({ User: { eq: to }, jid: { eq: from } }, (
-                err,
-                items
-              ) => {
-                t.ifError(err)
-                t.is(items.length, 0)
+              Roster.one(to, from).then(item => {
+                t.falsy(item)
                 end()
-              })
+              }).catch(t.end)
             },
             500
           )
