@@ -38,11 +38,15 @@ test.cb.beforeEach(t => {
 })
 
 test.cb.afterEach(t => {
-  t.context.recvr.on('end', () => {
-    t.context.sendr.on('end', t.end)
-    t.context.sendr.end()
+  t.context.sendr.on('end', () => {
+    if (t.context.recvr.state) {
+      t.context.recvr.on('end', t.end)
+      t.context.recvr.end()
+    } else {
+      t.end()
+    }
   })
-  t.context.recvr.end()
+  t.context.sendr.end()
 })
 
 function invalidBroadcast (t, pkt) {
@@ -262,15 +266,138 @@ test.cb('probe - one-way', t => {
   })
 })
 
-test.failing.cb('probe - two-way', t => {
-  t.end('failed')
+test.cb('probe - two-way', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  const id = uniq(3)
+  Roster.update({ User: from, jid: to }, { from: true, to: true }, err => {
+    t.ifError(err)
+    Roster.update({ User: to, jid: from }, { from: true, to: true }, err => {
+      t.ifError(err)
+      // first we get unavailable
+      let sendrType = 'unavailable'
+      // publish recvr presence to look for
+      recvr.send(pkt`<presence id="${id}"/>`)
+      recvr.on('stanza', stanza => {
+        // skip self-broadcast
+        if (stanza.from === recvr.session.jid.toString()) return
+
+        t.true(stanza.is('presence'))
+        t.is(stanza.type, sendrType)
+        if (sendrType === 'unavailable') {
+          // next time around is online
+          sendrType = undefined
+
+          // let's wait a bit for recvr broadcast to settle
+          setTimeout(
+            () => {
+              // finally let's trigger probe
+              sendr.send(pkt`<presence/>`)
+              sendr.on('stanza', stanza => {
+                // skip self-broadcast
+                if (stanza.from === sendr.session.jid.toString()) return
+                t.true(stanza.is('presence'))
+                t.falsy(stanza.type)
+                t.is(stanza.id, id)
+                t.is(stanza.from, recvr.session.jid.toString())
+                t.is(stanza.to, from)
+                t.end()
+              })
+            },
+            500
+          )
+        }
+      })
+    })
+  })
 })
-test.failing.cb('probe - reverse-way', t => {
-  t.end('failed')
+
+test.cb('probe - reverse-way', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  const id = uniq(3)
+  Roster.update({ User: from, jid: to }, { from: true }, err => {
+    t.ifError(err)
+    Roster.update({ User: to, jid: from }, { to: true }, err => {
+      t.ifError(err)
+      // first we get unavailable
+      let sendrType = 'unavailable'
+      // publish recvr presence to look for
+      recvr.send(pkt`<presence id="${id}"/>`)
+      recvr.on('stanza', stanza => {
+        // skip self-broadcast
+        if (stanza.from === recvr.session.jid.toString()) return
+
+        t.true(stanza.is('presence'))
+        t.is(stanza.type, sendrType)
+        if (sendrType === 'unavailable') {
+          // next time around is online
+          sendrType = undefined
+
+          // let's wait a bit for recvr broadcast to settle
+          setTimeout(
+            () => {
+              // finally let's trigger probe
+              sendr.send(pkt`<presence/>`)
+              sendr.on('stanza', stanza => {
+                // should get only self-broadcast
+                t.true(stanza.is('presence'))
+                t.falsy(stanza.type)
+                t.falsy(stanza.id)
+                t.is(stanza.from, sendr.session.jid.toString())
+                t.is(stanza.to, from)
+
+                // and nothing more
+                setTimeout(t.end, 500)
+              })
+            },
+            500
+          )
+        }
+      })
+    })
+  })
 })
-test.failing.cb('probe - offline', t => {
-  t.end('failed')
+
+test.cb('probe - offline', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.update({ User: from, jid: to }, { from: true, to: true }, err => {
+    t.ifError(err)
+    Roster.update({ User: to, jid: from }, { from: true, to: true }, err => {
+      t.ifError(err)
+
+      recvr.end()
+      recvr.on('end', () => {
+        sendr.send(pkt`<presence/>`)
+        sendr.on('stanza', stanza => {
+          // skip self-broadcast
+          if (stanza.from === sendr.session.jid.toString()) return
+          t.true(stanza.is('presence'))
+          t.is(stanza.type, 'unavailable')
+          t.is(stanza.from, to)
+          t.end()
+        })
+      })
+    })
+  })
 })
+
 test.cb('probe - no reprobe', t => {
   const sendr = t.context.sendr
   sendr.on('error', t.end)

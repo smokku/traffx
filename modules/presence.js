@@ -32,10 +32,13 @@ module.exports = function (router) {
           const item = items[0]
           if (item && item.from) {
             Session.all(stanza.to).then(sessions => {
-              sessions = Object
-                .keys(sessions)
-                .map(resource => sessions[resource])
-              if (sessions.length > 0) {
+              if (
+                sessions &&
+                  (sessions = Object
+                    .keys(sessions)
+                    .map(resource => sessions[resource])
+                  ).length > 0
+              ) {
                 // 4. if the contact has at least one available resource, then the server MUST reply to the presence probe
                 //    by sending to the user the full XML of the last presence stanza with no 'to' attribute received
                 //    by the server from each of the contact's available resources
