@@ -108,13 +108,11 @@ module.exports.outbound = function (router) {
           ))
         }
         if (!stanza.type) {
-          Session.set(from, resource, priority, stanza).then(() => {
-            stanza.client.session = true
-          }).catch(next)
+          stanza.client.session = true
+          Session.set(from, resource, priority, stanza).catch(next)
         } else {
-          Session.del(from, resource, stanza).then(() => {
-            stanza.client.session = false
-          }).catch(next)
+          stanza.client.session = false
+          Session.del(from, resource, stanza).catch(next)
         }
 
         // server MUST send the initial presence stanza from the full JID

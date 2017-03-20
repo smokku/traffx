@@ -434,3 +434,82 @@ test.cb('probe - no reprobe', t => {
     })
   })
 })
+
+test.cb('unavailable - teardown', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.set(from, to, { to: true }).then(() => {
+    Roster.set(to, from, { from: true }).then(() => {
+      // get recvr online
+      recvr.send(pkt`<presence/>`)
+      recvr.on('stanza', stanza => {
+        t.true(stanza.is('presence'))
+        t.falsy(stanza.type)
+        // let's wait a bit for recvr broadcast to settle
+        setTimeout(
+          () => {
+            // count presence received
+            let count = 0
+            // teardown recvr session
+            recvr.end()
+            sendr.on('stanza', stanza => {
+              t.true(stanza.is('presence'))
+              t.is(stanza.type, 'unavailable')
+              t.is(stanza.from, recvr.session.jid.toString())
+              t.is(stanza.to, from)
+              count++
+              t.is(count, 1)
+              setTimeout(() => t.end(), 500)
+            })
+          },
+          500
+        )
+      })
+    })
+  })
+})
+
+test.cb('unavailable - shutdown', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  Roster.set(from, to, { to: true }).then(() => {
+    Roster.set(to, from, { from: true }).then(() => {
+      // get recvr online
+      recvr.send(pkt`<presence/>`)
+      recvr.on('stanza', stanza => {
+        t.true(stanza.is('presence'))
+        t.falsy(stanza.type)
+        // let's wait a bit for recvr broadcast to settle
+        setTimeout(
+          () => {
+            // count presence received
+            let count = 0
+            // shutdown recvr session
+            recvr.send(pkt`<presence type="unavailable"/>`)
+            recvr.end()
+            sendr.on('stanza', stanza => {
+              t.true(stanza.is('presence'))
+              t.is(stanza.type, 'unavailable')
+              t.is(stanza.from, recvr.session.jid.toString())
+              t.is(stanza.to, from)
+              count++
+              t.is(count, 1)
+              setTimeout(() => t.end(), 500)
+            })
+          },
+          500
+        )
+      })
+    })
+  })
+})

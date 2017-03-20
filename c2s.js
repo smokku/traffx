@@ -110,7 +110,7 @@ function C2S (opts = {}) {
       this.router.handle(client, stanza)
     })
 
-    client.on('disconnect', err => {
+    client.on('end', err => {
       this.log.info(
         { client_id: client.id, client_jid: client.jid },
         err ? `TEARDOWN ${err}` : 'DISCONNECT'
@@ -122,7 +122,12 @@ function C2S (opts = {}) {
         // https://xmpp.org/rfcs/rfc6121.html#presence-unavailable-outbound
         // If the server detects that the user has gone offline ungracefully, then the server
         // MUST generate the unavailable presence broadcast on the user's behalf.
-        // FIXME!
+        if (client.session) {
+          this.router.handle(client, new xmpp.Presence({
+            type: 'unavailable',
+            from: client.jid.toString()
+          }))
+        }
       }
     })
   })

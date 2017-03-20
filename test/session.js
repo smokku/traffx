@@ -145,7 +145,7 @@ test.cb('start & end', t => {
   })
 })
 
-test.failing.cb('teardown', t => {
+test.cb('start & teardown', t => {
   const client = t.context.client
   client.on('error', t.end)
 
