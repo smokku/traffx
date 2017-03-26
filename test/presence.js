@@ -565,8 +565,62 @@ function directProbe (t, off, on) {
 }
 
 // eslint-disable-next-line ava/test-ended, ava/use-t
-test.cb('direct - probe - offline', directProbe, client => client.send(pkt`<presence type="unavailable"/>`))
+test.cb(
+  'direct - probe - offline',
+  directProbe,
+  client => client.send(pkt`<presence type="unavailable"/>`)
+)
 // eslint-disable-next-line ava/test-ended, ava/use-t, ava/no-skip-test
 test.cb('direct - probe - teardown', directProbe, client => client.end())
 // eslint-disable-next-line ava/test-ended, ava/use-t, ava/no-skip-test
-test.cb('direct - probe - online', directProbe, client => client.send(pkt`<presence type="unavailable"/>`), client => client.send(pkt`<presence id="foo"/>`))
+test.cb(
+  'direct - probe - online',
+  directProbe,
+  client => client.send(pkt`<presence type="unavailable"/>`),
+  client => client.send(pkt`<presence id="foo"/>`)
+)
+
+test.cb('probe - last', t => {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.bare().toString()
+  const to = recvr.session.jid.bare().toString()
+  const id = uniq(3)
+  const msg = 'So long and thanks for all the fish'
+
+  Roster.set(from, to, { to: true }).then(() => {
+    Roster.set(to, from, { from: true }).then(() => {
+      recvr.send(pkt`<presence/>`)
+    }).catch(t.end)
+  }).catch(t.end)
+  recvr.on('stanza', stanza => {
+    t.true(stanza.is('presence'))
+    if (!stanza.type) {
+      recvr.send(
+        new xmpp.Presence({ type: 'unavailable', id }).c('status').t(msg)
+      )
+    } else if (stanza.type === 'unavailable') {
+      setTimeout(() => {
+        sendr.send(pkt`<presence/>`)
+        sendr.on('stanza', stanza => {
+          // skip self-broadcast
+          if (stanza.from === sendr.session.jid.toString()) return
+          t.true(stanza.is('presence'))
+          t.is(stanza.type, 'unavailable')
+          t.is(stanza.from, to)
+          t.is(stanza.to, from)
+          t.is(stanza.id, id)
+          const status = stanza.getChild('status')
+          t.truthy(status)
+          t.is(status.getText(), msg)
+          t.end()
+        })
+      }, 500)
+    } else {
+      t.end(stanza.type)
+    }
+  })
+})

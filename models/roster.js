@@ -1,13 +1,8 @@
 const dynamoose = require('dynamoose')
-const xmpp = require('node-xmpp-core')
 
 const rosterSchema = new dynamoose.Schema(
   {
-    User: {
-      type: String,
-      validate: v => typeof v === 'string' && v === new xmpp.JID(v).bare().toString(),
-      hashKey: true
-    },
+    User: { type: String, validate: require('./validate').user, hashKey: true },
     jid: { type: String, rangeKey: true },
     name: { type: String },
     to: { type: Boolean },

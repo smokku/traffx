@@ -3,6 +3,7 @@ const { parse, JID, Presence } = require('node-xmpp-core')
 const Roster = require('../models/roster')
 const Session = require('../models/session')
 const Direct = require('../models/direct')
+const Last = require('../models/last')
 
 function isBroadcast (stanza) {
   return !stanza.type ||
@@ -46,14 +47,21 @@ module.exports = function (router) {
                   stanza.send(presence)
                 }
               } else {
-                // 3. if the contact has no available resources, then the server SHOULD reply to the presence probe
-                //    by sending to the user a presence stanza of type "unavailable"
-                resp.type = 'unavailable'
-                // TODO SHOULD include information about the time when the last unavailable presence stanza was generated
-                // (formatted using the XMPP delayed delivery extension)
-                resp.send()
-                // TODO presence notification MAY include the full XML of the last unavailable presence stanza
-                // that the server received from the contact (including the 'id' of the original stanza)
+                Last.get(stanza.to).then(last => {
+                  // presence notification MAY include the full XML of the last unavailable presence stanza
+                  // that the server received from the contact (including the 'id' of the original stanza)
+                  if (last) {
+                    const presence = parse(last.presence)
+                    resp.id = presence.id
+                    resp.children = presence.children
+                    // TODO SHOULD include information about the time when the last unavailable presence stanza was generated
+                    // (formatted using the XMPP delayed delivery extension)
+                  }
+                  // 3. if the contact has no available resources, then the server SHOULD reply to the presence probe
+                  //    by sending to the user a presence stanza of type "unavailable"
+                  resp.type = 'unavailable'
+                  resp.send()
+                }).catch(next)
               }
             }).catch(next)
           } else {
@@ -120,6 +128,7 @@ module.exports.outbound = function (router) {
           } else {
             stanza.client.session = false
             Session.del(from, resource, stanza).catch(next)
+            Last.set(from, stanza, new Date())
           }
 
           // server MUST send the initial presence stanza from the full JID

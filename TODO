@@ -1,7 +1,6 @@
 - expire queue: items
   - catch expiry through keyspace notification and process ass usuall
 - track online & interested resources by router requesting client to subscribe additional channels
-- track last unavailable presence and answer to probes
 - cache contact's presence and send instead of probing
   (in Redis, with timeout triggering reprobe) 4.3.1.
 - Session cleanup job: iterate all Sessions and "ping" client via direct route
