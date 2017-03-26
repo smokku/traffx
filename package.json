@@ -15,7 +15,6 @@
   },
   "author": "Tomasz Sterna <tomek@xiaoka.com>",
   "dependencies": {
-    "@xmpp/console": "^0.0.1",
     "aws-sdk": "^2.16.0",
     "bunyan": "^1.8.5",
     "debug": "^2.6.0",
@@ -31,6 +30,7 @@
     "redlock": "^2.1.0"
   },
   "devDependencies": {
+    "@xmpp/console": "^0.0.1",
     "ava": "^0.18.2",
     "dynalite": "^1.1.1",
     "eslint": "^3.16.1",
