@@ -2,6 +2,7 @@ const { StanzaError } = require('junction')
 const { parse, JID } = require('node-xmpp-core')
 const Roster = require('../models/roster')
 const { rosterPush, isDummy } = require('./roster')
+const NS = require('../ns')
 
 function shouldHandle (stanza) {
   return stanza.is('presence') &&
@@ -279,4 +280,4 @@ module.exports.outbound = function (router) {
   }
 }
 
-module.exports.streamFeatures = { sub: 'urn:xmpp:features:pre-approval' }
+module.exports.streamFeatures = { sub: NS.PRE_APPROVAL }

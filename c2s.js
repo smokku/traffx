@@ -1,12 +1,8 @@
 // eslint-disable-next-line no-unused-vars
 const debug = require('debug')('traffic:c2s')
 const xmpp = require('node-xmpp-core')
-
+const NS = require('./ns')
 const Direct = require('./models/direct')
-
-const NS_SESSION = 'urn:ietf:params:xml:ns:xmpp-session'
-const NS_BIND = 'urn:ietf:params:xml:ns:xmpp-bind'
-const NS_STREAMS = 'http://etherx.jabber.org/streams'
 
 function C2S (opts = {}) {
   this.opts = opts
@@ -23,11 +19,11 @@ function C2S (opts = {}) {
   function sendFeatures () {
     if (this.authenticated) {
       const features = new xmpp.Element('stream:features', {
-        xmlns: NS_STREAMS,
-        'xmlns:stream': NS_STREAMS
+        xmlns: NS.STREAMS,
+        'xmlns:stream': NS.STREAMS
       })
-      features.c('bind', { xmlns: NS_BIND })
-      features.c('session', { xmlns: NS_SESSION })
+      features.c('bind', { xmlns: NS.BIND })
+      features.c('session', { xmlns: NS.SESSION })
       for (const name of Object.keys(streamFeatures)) {
         features.c(name, { xmlns: streamFeatures[name] })
       }
