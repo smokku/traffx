@@ -52,23 +52,6 @@ function Router (opts = {}) {
   this.redsub.config('SET', 'notify-keyspace-events', 'El')
   this.redsub.subscribe(this.queueChannel)
 
-  // packet from c2s to the world
-  var outbound = this.outbound = junction()
-  if (process.env.DEBUG) {
-    outbound.use(
-      require('./modules/logger')({ prefix: 'C2S: ', logger: debug })
-    )
-  }
-  var route = (stanza, next) => {
-    this.process(stanza)
-  }
-  outbound
-    .use(require('./modules/subscription').outbound(this))
-    .use(junction.presenceParser())
-    .use(require('./modules/presence').outbound(this))
-    .use(route)
-    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
-
   // process packet to server
   var server = this.server = junction()
   if (process.env.DEBUG) {
@@ -109,11 +92,37 @@ function Router (opts = {}) {
     .use(require('./modules/roster')(this))
     .use(require('junction-lastactivity')())
     .use(require('./modules/subscription')(this))
-    .use(junction.presenceParser())
     .use(require('./modules/presence')(this))
     .use(require('./modules/deliver')(this))
   user
     .use(junction.serviceUnavailable())
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
+
+  // packet from c2s to the world
+  var outbound = this.outbound = junction()
+  if (process.env.DEBUG) {
+    outbound.use(
+      require('./modules/logger')({ prefix: 'FROM: ', logger: debug })
+    )
+  }
+  var route = (stanza, next) => this.process(stanza)
+  outbound
+    .use(require('./modules/subscription').outbound(this))
+    .use(require('./modules/presence').outbound(this))
+    .use(route)
+    .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
+
+  // packet to c2s
+  var deliver = this.deliver = junction()
+  if (process.env.DEBUG) {
+    deliver.use(
+      require('./modules/logger')({ prefix: 'TO: ', logger: debug })
+    )
+  }
+  var send = (stanza, next) => this.route(stanza.to, stanza)
+  deliver
+    .use(require('./modules/presence').deliver(this))
+    .use(send)
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 }
 
@@ -137,9 +146,9 @@ Router.prototype.registerRoute = function (jid, client) {
     throw new Error('Invalid client to subscribe')
   }
   var channel = 'route:' + jid
-  var listener = stanza => {
-    debug('got stanza', stanza)
-    client.send(stanza)
+  var listener = packet => {
+    debug('got packet', packet)
+    client.send(xmpp.parse(packet))
   }
   listener.client = client
   this._channelEmitter.addListener(channel, listener)
@@ -269,7 +278,9 @@ Router.prototype.dispatch = function (local, jid, packet) {
     if (jid.local) {
       // to user
       if (jid.resource) {
-        throw new Error('No FullJID dispatcher') // yet?
+        this.deliver.handle(stanza, response, err => {
+          if (err) this.log.error(err)
+        })
       } else {
         this.user.handle(stanza, response, err => {
           if (err) this.log.error(err)
@@ -330,11 +341,5 @@ Router.prototype.process = function (stanza, local) {
     : new xmpp.JID(stanza.attrs.from).bare()
   const from = new xmpp.JID(stanza.attrs.from)
   local = local != null ? local : to.domain === from.domain
-  if (local && to.local && to.resource) {
-    // direct
-    this.route(to, stanza)
-  } else {
-    // dispatched
-    this.queue(local, to, stanza)
-  }
+  this.queue(local, to, stanza)
 }
