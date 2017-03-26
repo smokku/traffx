@@ -513,3 +513,60 @@ test.cb('unavailable - shutdown', t => {
     })
   })
 })
+
+function directProbe (t, off, on) {
+  const sendr = t.context.sendr
+  sendr.on('error', t.end)
+  const recvr = t.context.recvr
+  recvr.on('error', t.end)
+
+  const from = sendr.session.jid.toString()
+  const to = recvr.session.jid.toString()
+  const id = uniq(3)
+
+  let step = 0
+  sendr.send(pkt`<presence type="probe" to="${to}"/>`)
+  sendr.on('stanza', stanza => {
+    t.true(stanza.is('presence'))
+    t.is(stanza.from, to)
+    t.is(stanza.to, from)
+    switch (step) {
+      case 0:
+        t.is(stanza.type, 'unavailable')
+        step++
+        if (on) on(recvr)
+        recvr.send(pkt`<presence id="${id}" to="${from}"/>`)
+        break
+      case 1:
+        t.is(stanza.type, undefined)
+        t.is(stanza.id, id)
+        step++
+        sendr.send(pkt`<presence type="probe" to="${to}"/>`)
+        break
+      case 2:
+        t.is(stanza.type, undefined)
+        t.is(stanza.id, undefined)
+        step++
+        off(recvr)
+        setTimeout(
+          () => sendr.send(pkt`<presence type="probe" to="${to}"/>`),
+          500
+        )
+        break
+      case 3:
+        t.is(stanza.type, 'unavailable')
+        t.is(stanza.id, undefined)
+        t.end()
+        break
+      default:
+        t.end(step)
+    }
+  })
+}
+
+// eslint-disable-next-line ava/test-ended, ava/use-t
+test.cb('direct - probe - offline', directProbe, client => client.send(pkt`<presence type="unavailable"/>`))
+// eslint-disable-next-line ava/test-ended, ava/use-t, ava/no-skip-test
+test.cb('direct - probe - teardown', directProbe, client => client.end())
+// eslint-disable-next-line ava/test-ended, ava/use-t, ava/no-skip-test
+test.cb('direct - probe - online', directProbe, client => client.send(pkt`<presence type="unavailable"/>`), client => client.send(pkt`<presence id="foo"/>`))

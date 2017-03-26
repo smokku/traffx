@@ -39,8 +39,9 @@ function Router (opts = {}) {
   this.redis.on('error', err => this.log.error(err))
   this.redlock.on('clientError', err => this.log.error(err))
 
-  // pass as Session store
+  // pass as Session and Direct store
   require('./models/session').setStore(this.redis)
+  require('./models/direct').setStore(this.redis)
 
   // route messaging
   this._channelEmitter = new EventEmitter().setMaxListeners(0)

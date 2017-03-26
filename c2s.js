@@ -2,6 +2,8 @@
 const debug = require('debug')('traffic:c2s')
 const xmpp = require('node-xmpp-core')
 
+const Direct = require('./models/direct')
+
 const NS_SESSION = 'urn:ietf:params:xml:ns:xmpp-session'
 const NS_BIND = 'urn:ietf:params:xml:ns:xmpp-bind'
 const NS_STREAMS = 'http://etherx.jabber.org/streams'
@@ -127,6 +129,12 @@ function C2S (opts = {}) {
             type: 'unavailable',
             from: client.jid.toString()
           }))
+        } else {
+          // https://xmpp.org/rfcs/rfc6121.html#presence-directed-considerations
+          // clearing the list when the user goes offline (e.g., by sending a broadcast presence stanza of type "unavailable")
+          Direct.clear(client.jid.toString()).catch(err => {
+            this.log.console.error({ client_id: client.id, client_jid: client.jid }, err)
+          })
         }
       }
     })

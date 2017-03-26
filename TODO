@@ -1,5 +1,3 @@
-- directed presence tracking (stanza.client.session = {} ? )
-  required for MUC
 - expire queue: items
   - catch expiry through keyspace notification and process ass usuall
 - track online & interested resources by router requesting client to subscribe additional channels

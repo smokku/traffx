@@ -2,6 +2,7 @@ const { StanzaError } = require('junction')
 const { parse, JID, Presence } = require('node-xmpp-core')
 const Roster = require('../models/roster')
 const Session = require('../models/session')
+const Direct = require('../models/direct')
 
 function isBroadcast (stanza) {
   return !stanza.type ||
@@ -80,8 +81,13 @@ module.exports.outbound = function (router) {
   return function presence (stanza, next) {
     if (stanza.is('presence')) {
       const session = stanza.client.session
-      if (!stanza.to && isBroadcast(stanza)) {
-        debug('broadcast %s %s', stanza.type || 'available', stanza)
+      if (isBroadcast(stanza)) {
+        debug(
+          '%s %s %s',
+          stanza.to ? 'direct' : 'broadcast',
+          stanza.type || 'available',
+          stanza
+        )
         // https://xmpp.org/rfcs/rfc6121.html#presence-initial-outbound
         const from = new JID(stanza.from).bare().toString()
         // https://xmpp.org/rfcs/rfc6121.html#presence-probe-outbound
@@ -107,33 +113,51 @@ module.exports.outbound = function (router) {
             'bad-request'
           ))
         }
-        if (!stanza.type) {
-          stanza.client.session = true
-          Session.set(from, resource, priority, stanza).catch(next)
-        } else {
-          stanza.client.session = false
-          Session.del(from, resource, stanza).catch(next)
-        }
-
-        // server MUST send the initial presence stanza from the full JID
-        // of the user to all contacts that are subscribed to the user's presence
-        Roster.all(from).then(items => {
-          var item
-          for (item of items) {
-            if (item.from) {
-              stanza.to = item.jid
-              stanza.send(stanza)
-            }
-            if (item.to && probe) {
-              probe.to = item.jid
-              stanza.send(probe)
-            }
+        if (!stanza.to) {
+          if (!stanza.type) {
+            stanza.client.session = true
+            Session.set(from, resource, priority, stanza).catch(next)
+          } else {
+            stanza.client.session = false
+            Session.del(from, resource, stanza).catch(next)
           }
-        }).catch(next)
-        // server MUST also broadcast initial presence from the user's newly available resource
-        // to all of the user's available resources
-        stanza.to = from
-        router.route(from, stanza)
+
+          // server MUST send the initial presence stanza from the full JID
+          // of the user to all contacts that are subscribed to the user's presence
+          Roster.all(from).then(items => {
+            var item
+            for (item of items) {
+              if (item.from) {
+                stanza.to = item.jid
+                stanza.send(stanza)
+              }
+              if (item.to && probe) {
+                probe.to = item.jid
+                stanza.send(probe)
+              }
+            }
+          }).catch(next)
+          // server MUST also broadcast initial presence from the user's newly available resource
+          // to all of the user's available resources
+          stanza.to = from
+          router.route(from, stanza)
+          // https://xmpp.org/rfcs/rfc6121.html#presence-directed-considerations
+          // clearing the list when the user goes offline (e.g., by sending a broadcast presence stanza of type "unavailable")
+          if (stanza.type) {
+            Direct.clear(stanza.from).catch(next)
+          }
+        } else {
+          // https://xmpp.org/rfcs/rfc6121.html#presence-directed-gen
+          if (!stanza.type) {
+            Direct.set(stanza.from, stanza.to)
+          } else {
+            // https://xmpp.org/rfcs/rfc6121.html#presence-directed-considerations
+            // server MUST remove from the directed presence list any entity to which the user sends directed unavailable presence
+            Direct.del(stanza.from, stanza.to)
+          }
+          // server MUST locally deliver or remotely route the full XML of that presence stanza
+          next()
+        }
       } else {
         // https://xmpp.org/rfcs/rfc6121.html#presence-syntax-type
         // If the value of the 'type' attribute is not one of the foregoing values, the recipient
@@ -159,6 +183,25 @@ module.exports.outbound = function (router) {
           ))
         }
       }
+    } else {
+      next()
+    }
+  }
+}
+
+/*******************************
+/* C2S delivered packet
+ */
+module.exports.deliver = function (router) {
+  const debug = require('debug')('traffic:mod:presence:dispatch')
+  return function presence (stanza, resp, next) {
+    if (stanza.is('presence') && stanza.type === 'probe') {
+      debug('probe %s', stanza)
+      // https://xmpp.org/rfcs/rfc6121.html#presence-directed-probe
+      Direct.one(stanza.to, stanza.from).then(direct => {
+        resp.type = direct ? undefined : 'unavailable'
+        resp.send()
+      }).catch(next)
     } else {
       next()
     }
