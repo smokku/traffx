@@ -1,5 +1,6 @@
 const { StanzaError } = require('junction')
 const { parse, JID, Presence } = require('node-xmpp-core')
+const NS = require('../ns')
 const Roster = require('../models/roster')
 const Session = require('../models/session')
 const Direct = require('../models/direct')
@@ -54,8 +55,11 @@ module.exports = function (router) {
                     const presence = parse(last.presence)
                     resp.id = presence.id
                     resp.children = presence.children
-                    // TODO SHOULD include information about the time when the last unavailable presence stanza was generated
+                    // SHOULD include information about the time when the last unavailable presence stanza was generated
                     // (formatted using the XMPP delayed delivery extension)
+                    const delay = resp.getChild('delay', NS.DELAY) || resp.c('delay', NS.DELAY)
+                    delay.attr('from', stanza.to)
+                    delay.attr('stamp', last.date.toISOString())
                   }
                   // 3. if the contact has no available resources, then the server SHOULD reply to the presence probe
                   //    by sending to the user a presence stanza of type "unavailable"
