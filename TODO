@@ -1,5 +1,6 @@
 - expire queue: items
-  - catch expiry through keyspace notification and process ass usuall
+  - catch expiry through keyspace notification and process as usuall
+    (so if queue add was MIA the item gets processed on expiry)
 - track online & interested resources by router requesting client to subscribe additional channels
 - cache contact's presence and send instead of probing
   (in Redis, with timeout triggering reprobe) 4.3.1.
@@ -25,3 +26,8 @@
 
 - https://www.graylog.org
 - some Business Intelligence dashboard
+
+- user uploads
+  http://stackoverflow.com/questions/33084583/how-do-i-use-cognito-purely-to-authenticate-users-for-s3-use
+
+- https://github.com/atlassian/localstack
