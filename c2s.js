@@ -15,7 +15,7 @@ function C2S (opts = {}) {
     : true
 
   // https://github.com/node-xmpp/node-xmpp/issues/391
-  var streamFeatures = this.streamFeatures = {}
+  var streamFeatures = (this.streamFeatures = {})
   function sendFeatures () {
     if (this.authenticated) {
       const features = new xmpp.Element('stream:features', {
@@ -85,7 +85,15 @@ function C2S (opts = {}) {
         },
         'AUTH'
       )
-      cb(null, opts)
+      var auth
+      if (process.env.TRAFFIC_AUTH) {
+        auth = process.env.TRAFFIC_AUTH.replace('/', '')
+      } else if (process.env.NODE_ENV === 'development') {
+        auth = 'dummy'
+      } else {
+        throw new Error('No TRAFFIC_AUTH module selected')
+      }
+      require(`./auth/${auth}`)(opts, cb)
     })
 
     client.on('online', () => {
@@ -121,15 +129,21 @@ function C2S (opts = {}) {
         // If the server detects that the user has gone offline ungracefully, then the server
         // MUST generate the unavailable presence broadcast on the user's behalf.
         if (client.session) {
-          this.router.handle(client, new xmpp.Presence({
-            type: 'unavailable',
-            from: client.jid.toString()
-          }))
+          this.router.handle(
+            client,
+            new xmpp.Presence({
+              type: 'unavailable',
+              from: client.jid.toString()
+            })
+          )
         } else {
           // https://xmpp.org/rfcs/rfc6121.html#presence-directed-considerations
           // clearing the list when the user goes offline (e.g., by sending a broadcast presence stanza of type "unavailable")
           Direct.clear(client.jid.toString()).catch(err => {
-            this.log.console.error({ client_id: client.id, client_jid: client.jid }, err)
+            this.log.console.error(
+              { client_id: client.id, client_jid: client.jid },
+              err
+            )
           })
         }
       }
