@@ -6,7 +6,6 @@ const { uniq } = require('../utils')
 function rosterItem (query, item) {
   const el = query.c('item', { jid: item.jid })
   if (item.name) el.attrs.name = item.name
-  // TODO
   // 2.1.2.1.  Approved Attribute
   if (item.approved) el.attrs.approved = 'true'
   // 2.1.2.2.  Ask Attribute
@@ -42,7 +41,7 @@ function isDummy (item) {
 
 /* https://tools.ietf.org/html/rfc6121#section-2
  * roster get/set
- * TODO extend disco with jabber:iq:roster
+ * TODO: extend disco with jabber:iq:roster
  */
 module.exports = function (router) {
   return function roster (req, res, next) {
@@ -50,64 +49,68 @@ module.exports = function (router) {
     if (req.is('iq') && (query = req.getChild('query', 'jabber:iq:roster'))) {
       // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
       if (req.to !== new JID(req.from).bare().toString()) {
-        return next(new StanzaError(
-          'not allowed to access roster',
-          'auth',
-          'forbidden'
-        ))
+        return next(
+          new StanzaError('not allowed to access roster', 'auth', 'forbidden')
+        )
       }
       items = query.getChildren('item')
       if (req.type === 'get') {
         if (items.length > 0) {
-          return next(new StanzaError(
-            'roster-get cannot contain items',
-            'modify',
-            'bad-request'
-          ))
+          return next(
+            new StanzaError(
+              'roster-get cannot contain items',
+              'modify',
+              'bad-request'
+            )
+          )
         }
-        Roster.all(req.to).then(items => {
-          query = res.c('query', {
-            xmlns: 'jabber:iq:roster',
-            // FIXME!
-            ver: new Date().toISOString()
-          })
+        Roster.all(req.to)
+          .then(items => {
+            query = res.c('query', {
+              xmlns: 'jabber:iq:roster',
+              // FIXME: really implement versioning
+              ver: new Date().toISOString()
+            })
 
-          for (item of items) {
-            // skip items existing only to store 'Pending In'
-            if (isDummy(item)) continue
-            rosterItem(query, item)
-          }
-          res.send()
-        }).catch(next)
+            for (item of items) {
+              // skip items existing only to store 'Pending In'
+              if (isDummy(item)) continue
+              rosterItem(query, item)
+            }
+            res.send()
+          })
+          .catch(next)
       }
       if (req.type === 'set') {
         // https://xmpp.org/rfcs/rfc6121.html#roster-add-errors
         if (items.length !== 1) {
-          return next(new StanzaError(
-            'roster-set can contain one item only',
-            'modify',
-            'bad-request'
-          ))
+          return next(
+            new StanzaError(
+              'roster-set can contain one item only',
+              'modify',
+              'bad-request'
+            )
+          )
         }
         if (!(item = items[0]).attrs.jid) {
-          return next(new StanzaError(
-            'roster-set requires jid for item`',
-            'modify',
-            'bad-request'
-          ))
+          return next(
+            new StanzaError(
+              'roster-set requires jid for item`',
+              'modify',
+              'bad-request'
+            )
+          )
         }
         if (item.attrs.subscription === 'remove') {
           Roster.del(req.to, item.attrs.jid).then(() => res.send()).catch(next)
-          // FIXME should send presence-unsubscribed and presence-offline?
+          // FIXME: should send presence-unsubscribed and presence-offline?
         } else {
-          Roster
-            .set(req.to, item.attrs.jid, { name: item.attrs.name })
+          Roster.set(req.to, item.attrs.jid, { name: item.attrs.name })
             .then(() => res.send())
             .catch(next)
         }
-        // TODO
-        // 2.1.2.6.  Group Element
-        // FIXME 2.1.6.  Roster Push
+        // TODO: 2.1.2.6.  Group Element
+        // FIXME: 2.1.6.  Roster Push
         // If a connected resource or available resource requests the roster,
         // it is referred to as an "interested resource". The server MUST send
         // roster pushes to all interested resources.

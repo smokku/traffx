@@ -31,7 +31,7 @@ s2s._server.on('listening', () => {
 })
 const Router = require('./router')
 const router = new Router({ log, router: s2s })
-// FIXME https://github.com/node-xmpp/node-xmpp/issues/366
+// FIXME: https://github.com/node-xmpp/node-xmpp/issues/366
 const DomainContext = require('node-xmpp-server/lib/S2S/domaincontext')
 DomainContext.prototype.receive = function (stanza) {
   debug('router receive %s', stanza)

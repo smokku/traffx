@@ -85,7 +85,7 @@ test('roster set invalid', async t => {
   t.is(res5.attrs.id, 'set_5')
   const err5 = res5.getChild('error')
   t.is(err5.attrs.type, 'modify')
-  // TODO repeating group, empty group
+  // TODO: repeating group, empty group
 })
 
 test('roster set/get/update/delete', async t => {
@@ -116,10 +116,10 @@ test('roster set/get/update/delete', async t => {
   t.truthy(query4.attrs.ver)
   const items4 = query4.getChildren('item')
   t.is(items4.length, 2)
-  t.deepEqual(new Set(items4.map(item => item.attrs.name)), new Set([
-    'One',
-    undefined
-  ]))
+  t.deepEqual(
+    new Set(items4.map(item => item.attrs.name)),
+    new Set(['One', undefined])
+  )
 
   const set5 = iq('set', 5).c('item', { jid: 'two@example.com', name: 'Two' })
   const res5 = await router.iq(set5)
@@ -138,10 +138,10 @@ test('roster set/get/update/delete', async t => {
   t.truthy(query7.attrs.ver)
   const items7 = query7.getChildren('item')
   t.is(items7.length, 2)
-  t.deepEqual(new Set(items7.map(item => item.attrs.name)), new Set([
-    'Two',
-    undefined
-  ]))
+  t.deepEqual(
+    new Set(items7.map(item => item.attrs.name)),
+    new Set(['Two', undefined])
+  )
   const set8 = iq('set', 8).c('item', { jid: 'two@example.com', name: '' })
   const res8 = await router.iq(set8)
   t.is(res8.attrs.type, 'result')
@@ -155,10 +155,10 @@ test('roster set/get/update/delete', async t => {
   t.truthy(query9.attrs.ver)
   const items9 = query9.getChildren('item')
   t.is(items9.length, 2)
-  t.deepEqual(new Set(items9.map(item => item.attrs.name)), new Set([
-    undefined,
-    undefined
-  ]))
+  t.deepEqual(
+    new Set(items9.map(item => item.attrs.name)),
+    new Set([undefined, undefined])
+  )
 
   const setA = iq('set', 'A').c('item', {
     jid: 'one@example.com',

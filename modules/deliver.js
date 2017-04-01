@@ -15,7 +15,7 @@ module.exports = function (router) {
           case 'chat':
           case 'headline':
             // http://xmpp.org/rfcs/rfc6121.html#rules-localpart-barejid-resource
-            // TODO specific rules are a bit different here, but for now this will do
+            // TODO: specific rules are a bit different here, but for now this will do
             router.route(jid, stanza)
             return
         }

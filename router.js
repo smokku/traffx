@@ -34,7 +34,7 @@ function Router (opts = {}) {
   this.redis = opts.redis ||
     redis.createClient({ db: this.db, prefix: this.prefix })
   this.redsub = opts.redsub || this.redis.duplicate()
-  this.redlock = new Redlock([ this.redis ], { retryCount: 0 })
+  this.redlock = new Redlock([this.redis], { retryCount: 0 })
 
   this.redis.on('error', err => this.log.error(err))
   this.redlock.on('clientError', err => this.log.error(err))
@@ -54,7 +54,7 @@ function Router (opts = {}) {
   this.redsub.subscribe(this.queueChannel)
 
   // process packet to server
-  var server = this.server = junction()
+  var server = (this.server = junction())
   if (process.env.DEBUG) {
     server.use(
       require('./modules/logger')({ prefix: 'SERVER: ', logger: debug })
@@ -69,7 +69,7 @@ function Router (opts = {}) {
     .use(require('junction-time')())
     .use(
       junction.middleware.serviceDiscovery(
-        [ { category: 'server', type: 'im' } ],
+        [{ category: 'server', type: 'im' }],
         [
           'http://jabber.org/protocol/disco#info',
           // 'http://jabber.org/protocol/disco#items', // FIXME
@@ -85,7 +85,7 @@ function Router (opts = {}) {
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
   // process packet to client
-  var user = this.user = junction()
+  var user = (this.user = junction())
   if (process.env.DEBUG) {
     user.use(require('./modules/logger')({ prefix: 'USER: ', logger: debug }))
   }
@@ -100,7 +100,7 @@ function Router (opts = {}) {
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
   // packet from c2s to the world
-  var outbound = this.outbound = junction()
+  var outbound = (this.outbound = junction())
   if (process.env.DEBUG) {
     outbound.use(
       require('./modules/logger')({ prefix: 'FROM: ', logger: debug })
@@ -114,11 +114,9 @@ function Router (opts = {}) {
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 
   // packet to c2s
-  var deliver = this.deliver = junction()
+  var deliver = (this.deliver = junction())
   if (process.env.DEBUG) {
-    deliver.use(
-      require('./modules/logger')({ prefix: 'TO: ', logger: debug })
-    )
+    deliver.use(require('./modules/logger')({ prefix: 'TO: ', logger: debug }))
   }
   var send = (stanza, next) => this.route(stanza.to, stanza)
   deliver
@@ -127,8 +125,7 @@ function Router (opts = {}) {
     .use(junction.errorHandler({ dumpExceptions: this.dumpExceptions }))
 }
 
-Router.os = `${process.release.name}/${process.release.lts ||
-  process.versions.node.split('.')[0]} (${os.type()} ${os.arch()})`
+Router.os = `${process.release.name}/${process.release.lts || process.versions.node.split('.')[0]} (${os.type()} ${os.arch()})`
 
 module.exports = Router
 
@@ -155,7 +152,7 @@ Router.prototype.registerRoute = function (jid, client) {
   this._channelEmitter.addListener(channel, listener)
   this.redsub.subscribe(channel, (err, reply) => {
     if (err) throw err
-    // TODO Analyze this
+    // TODO: Analyze this
     debug('registered route %s -> %s', jid, client.id)
   })
 }
@@ -169,13 +166,13 @@ Router.prototype.unregisterRoute = function (jid, client) {
     .listeners(channel)
     .find(listener => listener.client === client)
   if (!listener) {
-    // FIXME throw new Error(`No listener for ${client.id} on ${channel}`)
+    // FIXME: throw new Error(`No listener for ${client.id} on ${channel}`)
     return
   }
   this._channelEmitter.removeListener(channel, listener)
   this.redsub.unsubscribe(channel, (err, reply) => {
     if (err) throw err
-    // TODO Analyze this
+    // TODO: Analyze this
     debug('unregistered route %s -> %s', jid, client.id)
   })
 }
