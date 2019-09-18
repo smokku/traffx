@@ -17,7 +17,7 @@
   "dependencies": {
     "aws-sdk": "^2.16.0",
     "bunyan": "^1.8.5",
-    "debug": "^2.6.0",
+    "debug": "^2.6.9",
     "dynamoose": "^0.7.0",
     "junction": "^0.2.0",
     "junction-lastactivity": "^0.1.0",
