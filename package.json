@@ -15,7 +15,7 @@
   },
   "author": "Tomasz Sterna <tomek@xiaoka.com>",
   "dependencies": {
-    "aws-sdk": "^2.16.0",
+    "aws-sdk": "^2.814.0",
     "bunyan": "^1.8.5",
     "debug": "^2.6.9",
     "dynamoose": "^0.7.0",
